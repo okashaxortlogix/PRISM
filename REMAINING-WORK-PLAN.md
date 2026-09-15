@@ -58,7 +58,26 @@
 
 ---
 
-### Task P1-02: Production AI / LLM Gateway & Structured Output Engine
+### Task P1-02: Repository Ingestion, Git Adapter Hardening & File Tree Indexing [COMPLETED & VERIFIED]
+- **Status**: **COMPLETE** (Verified with 100% passing tests)
+- **Implemented**: Strict Git URL security validation (preventing argument injection, shell metacharacter execution, and protocol traversal), deterministic file tree traversal ignoring binaries and vendor folders, SHA-256 content hashing, language detection, dependency manifest parsers for NPM (`package.json`), Go Modules (`go.mod`), and Python (`requirements.txt`). Implemented background ingestion worker pipeline (`JOB_TYPES.REPOSITORY_INGESTION`) with checkpoints, `repository_files` and `repository_dependencies` normalized persistence, automatic synthesis of immutable `REPOSITORY_CODE` evidence items, and tenant-scoped REST APIs (`/api/v1/repositories/:id`, `/api/v1/repositories/:id/files`, `/api/v1/repositories/:id/dependencies`, `/api/v1/repositories/:id/sync`, and `POST /api/v1/projects/:projectId/repositories`).
+- **Files**: `src/ingestion/gitValidator.js`, `src/ingestion/repoIndexer.js`, `src/queue/handlers/repoIngestionHandler.js`, `src/api/routes/repositories.js`, `src/api/routes/projects.js`, `src/queue/jobQueue.js`, `src/queue/jobWorker.js`, `src/server.js`, `src/db/schema.sql`, `src/db/database.js`, `tests/ingestion/repoIngestion.test.js`, `P1-02-REPOSITORY-INGESTION-REPORT.md`.
+- **Verification**: 16 automated tests passing in `tests/ingestion/repoIngestion.test.js`. Master test suite: 134 passing, 0 failing (100% green).
+
+---
+
+### Task P1-03: Abstract Syntax Tree (AST) Parsing & Symbol Call-Graph Modeling
+- **Why**: PRISM needs deep syntactic code comprehension and caller-callee relationship graphs across repository source files.
+- **Current State**: File inventory and dependency manifests indexed; no AST symbol extraction or call-graph models.
+- **Required State**: Multi-language AST parsing (Babel / TypeScript / Tree-sitter), symbol tables (functions, classes, interfaces, variables), caller-callee relationship graphing, and code entity indexing for investigations.
+- **Files Affected**: `src/ingestion/astParser.js` [NEW], `src/ingestion/symbolGraph.js` [NEW], `src/db/schema.sql`, `src/db/database.js`.
+- **Complexity**: High (4-5 days).
+- **Testing Required**: AST syntax tree fixtures, symbol table accuracy tests, call graph traversal tests.
+- **Acceptance Criteria**: Ingested repository populates symbol tables and caller-callee call graphs.
+
+---
+
+### Task P1-04: Production AI / LLM Gateway & Structured Output Engine
 - **Why**: PRISM currently has zero AI models and cannot read or reason about code/logs.
 - **Current State**: 70 lines of static division in `intelligenceEngine.js`.
 - **Required State**: Integrate real LLM client (e.g. Gemini 1.5 Pro / Claude 3.5 Sonnet) with schema-constrained JSON outputs, prompt templates, token budgeting, and fallback handling.
@@ -69,18 +88,7 @@
 
 ---
 
-### Task P1-03: Real Repository Ingestion & AST Code Parsing (Phase 02)
-- **Why**: PRISM cannot investigate code issues without parsing repository structure.
-- **Current State**: Only stores a Git URL string in SQLite.
-- **Required State**: Git clone runner, file tree walker, dependency parser (`package.json`, `go.mod`, `pom.xml`), and Tree-sitter / Babel AST symbol extractor.
-- **Files Affected**: `src/ingestion/` [NEW], `src/api/routes/projects.js`.
-- **Complexity**: High (5-6 days).
-- **Testing Required**: Ingestion tests on sample Go/Node repositories.
-- **Acceptance Criteria**: Ingested repository populates symbol tables, file trees, and dependency graphs.
-
----
-
-### Task P1-04: Isolated Sandbox Experiment Runner (Phase 05)
+### Task P1-05: Isolated Sandbox Experiment Runner (Phase 05)
 - **Why**: The experiment runner currently generates mock strings.
 - **Current State**: String concatenation simulator in `experiments.js:47-65`.
 - **Required State**: Real isolated execution runner using Docker/containerd or ephemeral microVMs with strict memory/CPU limits and no host filesystem access.
