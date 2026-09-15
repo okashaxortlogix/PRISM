@@ -50,14 +50,11 @@
 
 ## 3. [P1] Required for V1 Launch
 
-### Task P1-01: True Asynchronous Job Queue & Worker Architecture
-- **Why**: Long-running tasks (repo ingestion, AI reasoning, experiments) block the Express HTTP thread.
-- **Current State**: 100% synchronous execution in request handlers.
-- **Required State**: Embedded SQLite-backed job queue or Redis/BullMQ worker pool processing background jobs with idempotency, retries, and failure tracking.
-- **Files Affected**: `src/queue/` [NEW], `src/workers/` [NEW], `src/server.js`.
-- **Complexity**: High (4-5 days).
-- **Testing Required**: Worker retry tests; worker crash recovery; idempotency tests.
-- **Acceptance Criteria**: Long-running operations return HTTP 202 Accepted with a Job ID; worker processes job asynchronously.
+### Task P1-01: True Asynchronous Job Queue & Worker Architecture [COMPLETED & VERIFIED]
+- **Status**: **COMPLETE** (Verified with 100% passing tests)
+- **Implemented**: Embedded durable SQLite job queue with transactional atomic claiming, priority ordering (HIGH/NORMAL/LOW), bounded retries with exponential backoff and jitter, lease heartbeats and stale-job dead-worker recovery, execution checkpoints for resumability, cooperative cancellation, server-side tenant isolation, and Prometheus queue observability. Added `/api/v1/jobs` endpoints, `/api/v1/investigations/:id/execute` returning HTTP 202 Accepted, and asynchronous investigation creation.
+- **Files**: `src/queue/jobQueue.js`, `src/queue/jobWorker.js`, `src/queue/jobErrors.js`, `src/queue/handlers/`, `src/api/routes/jobs.js`, `src/api/routes/investigations.js`, `src/server.js`, `src/db/schema.sql`, `src/db/database.js`, `src/observability/metrics.js`, `tests/jobs/jobQueue.test.js`, `P1-01-ASYNC-JOB-QUEUE-REPORT.md`.
+- **Verification**: 19 automated tests passing in `tests/jobs/jobQueue.test.js`. Master test suite: 118 passing, 0 failing (100% green).
 
 ---
 

@@ -12,6 +12,7 @@ const { runHeaderSpoofingTests } = require('./security/headerSpoofing.test');
 const { runRoleAuthTests } = require('./security/roleAuth.test');
 const { runWebhookSecurityTests } = require('./security/webhookSecurity.test');
 const { runSchemaNormalizationTests } = require('./database/schemaNormalization.test');
+const { runJobQueueTests } = require('./jobs/jobQueue.test');
 const assert = require('node:assert');
 
 async function runMasterTestSuite() {
@@ -100,11 +101,15 @@ async function runMasterTestSuite() {
   await runSchemaNormalizationTests();
   domainTestsCount += 13;
 
+  // 13. Queue & Worker Suite: Asynchronous Job Queue & Background Worker Architecture (P1-01)
+  await runJobQueueTests();
+  domainTestsCount += 19;
+
   const total = domainTestsCount + securityTestsCount;
 
   console.log('\n=====================================================');
   console.log('🎉 ALL PRISM SUITES PASSED SUCCESSFULLY! (100% GREEN)');
-  console.log(`📊 Domain Tests: ${domainTestsCount} passed`);
+  console.log(`📊 Domain & Architecture Tests: ${domainTestsCount} passed`);
   console.log(`🛡️ Security & Isolation Tests: ${securityTestsCount} passed`);
   console.log(`📈 Grand Total: ${total} tests passed, 0 failed, 0 skipped`);
   console.log('=====================================================');

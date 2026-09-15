@@ -317,12 +317,65 @@ function migration005(db) {
   }
 }
 
+/**
+ * Migration 006: Asynchronous Job Queue & Background Worker Architecture (P1-01)
+ */
+function migration006(db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS jobs (
+      id TEXT PRIMARY KEY,
+      organization_id TEXT NOT NULL,
+      project_id TEXT,
+      investigation_id TEXT,
+      type TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'QUEUED',
+      priority TEXT NOT NULL DEFAULT 'NORMAL',
+      payload TEXT NOT NULL DEFAULT '{}',
+      result TEXT,
+      error_code TEXT,
+      error_message TEXT,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      max_attempts INTEGER NOT NULL DEFAULT 3,
+      scheduled_at TEXT NOT NULL,
+      started_at TEXT,
+      completed_at TEXT,
+      heartbeat_at TEXT,
+      worker_id TEXT,
+      idempotency_key TEXT UNIQUE,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY(organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
+      FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE SET NULL,
+      FOREIGN KEY(investigation_id) REFERENCES investigations(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS job_checkpoints (
+      id TEXT PRIMARY KEY,
+      job_id TEXT NOT NULL,
+      checkpoint_type TEXT NOT NULL,
+      phase TEXT NOT NULL,
+      progress_pct INTEGER NOT NULL DEFAULT 0,
+      state_data TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL,
+      FOREIGN KEY(job_id) REFERENCES jobs(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_jobs_claim ON jobs(status, scheduled_at, priority);
+    CREATE INDEX IF NOT EXISTS idx_jobs_org_status ON jobs(organization_id, status);
+    CREATE INDEX IF NOT EXISTS idx_jobs_investigation ON jobs(investigation_id);
+    CREATE INDEX IF NOT EXISTS idx_jobs_heartbeat ON jobs(status, heartbeat_at);
+    CREATE INDEX IF NOT EXISTS idx_jobs_idempotency ON jobs(idempotency_key);
+    CREATE INDEX IF NOT EXISTS idx_job_checkpoints_job ON job_checkpoints(job_id, created_at);
+  `);
+}
+
 const MIGRATIONS = [
   { version: 1, name: '001_base_schema', up: migration001 },
   { version: 2, name: '002_organizations_and_users', up: migration002 },
   { version: 3, name: '003_memberships_and_sessions', up: migration003 },
   { version: 4, name: '004_integrations_and_webhooks', up: migration004 },
-  { version: 5, name: '005_schema_normalization_and_indexing', up: migration005 }
+  { version: 5, name: '005_schema_normalization_and_indexing', up: migration005 },
+  { version: 6, name: '006_async_job_queue_and_workers', up: migration006 }
 ];
 
 /**

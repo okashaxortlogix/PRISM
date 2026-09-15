@@ -8,6 +8,7 @@ const { validateTransition, STATES } = require('../../engine/stateMachine');
 const { authenticate, requireRole } = require('../../security/authMiddleware');
 const { getScopedProject, getScopedInvestigation } = require('../../security/tenantGuard');
 const { recordSecurityAudit } = require('../../security/auditService');
+const { jobQueue, JOB_TYPES } = require('../../queue/jobQueue');
 
 // All investigation endpoints require authentication
 router.use(authenticate);
@@ -141,7 +142,60 @@ router.post('/', requireRole(['MEMBER', 'ADMIN', 'OWNER']), (req, res) => {
     });
 
     const created = db.prepare('SELECT * FROM investigations WHERE id = ?').get(id);
+
+    const isAsync = req.query.async === 'true' || req.body.async === true;
+    if (isAsync) {
+      const job = jobQueue.enqueue({
+        organizationId: req.organization.id,
+        projectId: targetProjectId,
+        investigationId: id,
+        type: JOB_TYPES.INVESTIGATION,
+        payload: { investigation_id: id },
+        priority: req.body.priority || 'NORMAL'
+      });
+      return res.status(202).json({ success: true, data: created, job });
+    }
+
     res.status(201).json({ success: true, data: created });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: err.message } });
+  }
+});
+
+// POST /api/v1/investigations/:id/execute - enqueues asynchronous investigation execution
+router.post('/:id/execute', requireRole(['MEMBER', 'ADMIN', 'OWNER']), (req, res) => {
+  try {
+    const inv = getScopedInvestigation(req.params.id, req.organization.id);
+    if (!inv) {
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Investigation not found.' } });
+    }
+
+    const { priority = 'NORMAL' } = req.body;
+    const job = jobQueue.enqueue({
+      organizationId: req.organization.id,
+      projectId: inv.project_id,
+      investigationId: inv.id,
+      type: JOB_TYPES.INVESTIGATION,
+      payload: { investigation_id: inv.id },
+      priority
+    });
+
+    recordSecurityAudit({
+      organizationId: req.organization.id,
+      actorId: req.user.id,
+      eventType: 'INVESTIGATION_EXECUTION_ENQUEUED',
+      targetType: 'INVESTIGATION',
+      targetId: inv.id,
+      metadata: { jobId: job.id, priority }
+    });
+
+    res.status(202).json({
+      success: true,
+      data: {
+        investigationId: inv.id,
+        job
+      }
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: err.message } });
   }

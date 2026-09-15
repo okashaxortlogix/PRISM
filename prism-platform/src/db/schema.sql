@@ -339,3 +339,52 @@ CREATE INDEX IF NOT EXISTS idx_audit_target ON audit_events(target_type, target_
 CREATE INDEX IF NOT EXISTS idx_integrations_org ON integrations(organization_id);
 CREATE INDEX IF NOT EXISTS idx_integrations_provider ON integrations(provider);
 CREATE INDEX IF NOT EXISTS idx_processed_webhooks_lookup ON processed_webhooks(integration_id, delivery_id);
+
+-- =====================================================
+-- ASYNCHRONOUS JOBS & WORKER QUEUE (P1-01)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS jobs (
+    id TEXT PRIMARY KEY,
+    organization_id TEXT NOT NULL,
+    project_id TEXT,
+    investigation_id TEXT,
+    type TEXT NOT NULL, -- INVESTIGATION, REPORT_GENERATION, EVIDENCE_COLLECTION, HYPOTHESIS_EVALUATION
+    status TEXT NOT NULL DEFAULT 'QUEUED', -- QUEUED, RUNNING, SUCCEEDED, FAILED, RETRYING, CANCELLED, BLOCKED, DEAD_LETTER
+    priority TEXT NOT NULL DEFAULT 'NORMAL', -- HIGH, NORMAL, LOW
+    payload TEXT NOT NULL DEFAULT '{}',
+    result TEXT,
+    error_code TEXT,
+    error_message TEXT,
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 3,
+    scheduled_at TEXT NOT NULL,
+    started_at TEXT,
+    completed_at TEXT,
+    heartbeat_at TEXT,
+    worker_id TEXT,
+    idempotency_key TEXT UNIQUE,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
+    FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE SET NULL,
+    FOREIGN KEY(investigation_id) REFERENCES investigations(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS job_checkpoints (
+    id TEXT PRIMARY KEY,
+    job_id TEXT NOT NULL,
+    checkpoint_type TEXT NOT NULL,
+    phase TEXT NOT NULL,
+    progress_pct INTEGER NOT NULL DEFAULT 0,
+    state_data TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(job_id) REFERENCES jobs(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_jobs_claim ON jobs(status, scheduled_at, priority);
+CREATE INDEX IF NOT EXISTS idx_jobs_org_status ON jobs(organization_id, status);
+CREATE INDEX IF NOT EXISTS idx_jobs_investigation ON jobs(investigation_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_heartbeat ON jobs(status, heartbeat_at);
+CREATE INDEX IF NOT EXISTS idx_jobs_idempotency ON jobs(idempotency_key);
+CREATE INDEX IF NOT EXISTS idx_job_checkpoints_job ON job_checkpoints(job_id, created_at);
+

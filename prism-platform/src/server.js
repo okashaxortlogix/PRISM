@@ -18,6 +18,8 @@ const memoriesRouter = require('./api/routes/memories');
 const auditRouter = require('./api/routes/audit');
 const reportsRouter = require('./api/routes/reports');
 const integrationsRouter = require('./api/routes/integrations');
+const jobsRouter = require('./api/routes/jobs');
+const { defaultWorker } = require('./queue/jobWorker');
 const { trackRequest, getPrometheusMetrics } = require('./observability/metrics');
 
 const app = express();
@@ -65,6 +67,7 @@ app.use('/api/v1', verificationsRouter);
 app.use('/api/v1', rootCausesRouter);
 app.use('/api/v1', recommendationsRouter);
 app.use('/api/v1', reportsRouter);
+app.use('/api/v1/jobs', jobsRouter);
 
 // Health Check
 app.get('/api/health', (req, res) => {
@@ -95,12 +98,28 @@ app.use((err, req, res, next) => {
 });
 
 if (require.main === module) {
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`=====================================================`);
     console.log(`🚀 PRISM Platform running on http://localhost:${PORT}`);
     console.log(`🔒 Real Authentication & Tenant Isolation Active`);
+    console.log(`⚡ Asynchronous Job Queue & Background Worker Active`);
     console.log(`=====================================================`);
+
+    // Start background worker
+    defaultWorker.start();
   });
+
+  const shutdown = async (signal) => {
+    console.log(`\nReceived ${signal}. Shutting down PRISM platform gracefully...`);
+    await defaultWorker.stop();
+    server.close(() => {
+      console.log('PRISM HTTP server closed.');
+      process.exit(0);
+    });
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 module.exports = app;

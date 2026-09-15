@@ -25,6 +25,30 @@ function getPrometheusMetrics() {
   const verCounts = db.prepare('SELECT count(*) as count FROM verifications').get().count;
   const auditCounts = db.prepare('SELECT count(*) as count FROM audit_events').get().count;
 
+  // Job Queue Metrics (P1-01)
+  const jobStats = {
+    queued: 0,
+    running: 0,
+    succeeded: 0,
+    failed: 0,
+    retrying: 0,
+    dead_letter: 0,
+    cancelled: 0
+  };
+
+  try {
+    const jobRows = db.prepare('SELECT status, count(*) as count FROM jobs GROUP BY status').all();
+    for (const r of jobRows) {
+      if (r.status === 'QUEUED') jobStats.queued = r.count;
+      else if (r.status === 'RUNNING') jobStats.running = r.count;
+      else if (r.status === 'SUCCEEDED') jobStats.succeeded = r.count;
+      else if (r.status === 'FAILED') jobStats.failed = r.count;
+      else if (r.status === 'RETRYING') jobStats.retrying = r.count;
+      else if (r.status === 'DEAD_LETTER') jobStats.dead_letter = r.count;
+      else if (r.status === 'CANCELLED') jobStats.cancelled = r.count;
+    }
+  } catch (_) {}
+
   const avgDuration = metricsData.requestDurations.length > 0
     ? (metricsData.requestDurations.reduce((a, b) => a + b, 0) / metricsData.requestDurations.length) / 1000
     : 0.005;
@@ -52,7 +76,35 @@ function getPrometheusMetrics() {
     '',
     '# HELP prism_audit_events_total Total security audit events recorded',
     '# TYPE prism_audit_events_total gauge',
-    `prism_audit_events_total ${auditCounts}`
+    `prism_audit_events_total ${auditCounts}`,
+    '',
+    '# HELP prism_queue_jobs_queued_total Total queued jobs awaiting worker pickup',
+    '# TYPE prism_queue_jobs_queued_total gauge',
+    `prism_queue_jobs_queued_total ${jobStats.queued}`,
+    '',
+    '# HELP prism_queue_jobs_running_total Total jobs actively running across workers',
+    '# TYPE prism_queue_jobs_running_total gauge',
+    `prism_queue_jobs_running_total ${jobStats.running}`,
+    '',
+    '# HELP prism_queue_jobs_succeeded_total Total successfully completed background jobs',
+    '# TYPE prism_queue_jobs_succeeded_total gauge',
+    `prism_queue_jobs_succeeded_total ${jobStats.succeeded}`,
+    '',
+    '# HELP prism_queue_jobs_failed_total Total failed jobs',
+    '# TYPE prism_queue_jobs_failed_total gauge',
+    `prism_queue_jobs_failed_total ${jobStats.failed}`,
+    '',
+    '# HELP prism_queue_jobs_retrying_total Total jobs currently in backoff retry state',
+    '# TYPE prism_queue_jobs_retrying_total gauge',
+    `prism_queue_jobs_retrying_total ${jobStats.retrying}`,
+    '',
+    '# HELP prism_queue_jobs_dead_letter_total Total jobs in dead letter state after max attempts',
+    '# TYPE prism_queue_jobs_dead_letter_total gauge',
+    `prism_queue_jobs_dead_letter_total ${jobStats.dead_letter}`,
+    '',
+    '# HELP prism_queue_jobs_cancelled_total Total jobs cancelled',
+    '# TYPE prism_queue_jobs_cancelled_total gauge',
+    `prism_queue_jobs_cancelled_total ${jobStats.cancelled}`
   ];
 
   return lines.join('\n');

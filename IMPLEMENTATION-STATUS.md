@@ -32,7 +32,7 @@
 - [x] Implement secure authentication & session management (scrypt, stateful sessions, RBAC, tenant isolation - VERIFIED P0-01)
 - [x] Implement database migrations engine (`src/db/database.js` deterministic versioned migrations)
 - [x] Database schema normalization & B-tree indexing (hypothesis_evidence, memory_tags, root_cause_evidence, composite indexes, query plan verified - VERIFIED P0-04)
-- [ ] Implement asynchronous queue & workers (Currently 100% synchronous)
+- [x] Implement asynchronous queue & workers (Transactional claiming, bounded retries, lease heartbeats, checkpoints, tenant isolation, 19 tests - VERIFIED P1-01)
 
 ### Phase 02: Project Understanding
 - [ ] Git repository cloning engine
