@@ -13,6 +13,7 @@ const { runRoleAuthTests } = require('./security/roleAuth.test');
 const { runWebhookSecurityTests } = require('./security/webhookSecurity.test');
 const { runSchemaNormalizationTests } = require('./database/schemaNormalization.test');
 const { runJobQueueTests } = require('./jobs/jobQueue.test');
+const { runRepoIngestionTests } = require('./ingestion/repoIngestion.test');
 const assert = require('node:assert');
 
 async function runMasterTestSuite() {
@@ -104,6 +105,10 @@ async function runMasterTestSuite() {
   // 13. Queue & Worker Suite: Asynchronous Job Queue & Background Worker Architecture (P1-01)
   await runJobQueueTests();
   domainTestsCount += 19;
+
+  // 14. Repository Ingestion Suite: Git Adapter Hardening, File Tree Indexing & Manifests (P1-02)
+  await runRepoIngestionTests();
+  domainTestsCount += 16;
 
   const total = domainTestsCount + securityTestsCount;
 

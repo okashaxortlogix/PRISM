@@ -6,6 +6,7 @@ const { handleInvestigationJob } = require('./handlers/investigationHandler');
 const { handleReportJob } = require('./handlers/reportHandler');
 const { handleHypothesisJob } = require('./handlers/hypothesisHandler');
 const { handleEvidenceJob } = require('./handlers/evidenceHandler');
+const { handleRepoIngestionJob } = require('./handlers/repoIngestionHandler');
 const { JobError, ERROR_CODES } = require('./jobErrors');
 
 const WORKER_STATES = {
@@ -37,6 +38,7 @@ class JobWorker {
     this.registerHandler(JOB_TYPES.REPORT_GENERATION, handleReportJob);
     this.registerHandler(JOB_TYPES.HYPOTHESIS_EVALUATION, handleHypothesisJob);
     this.registerHandler(JOB_TYPES.EVIDENCE_COLLECTION, handleEvidenceJob);
+    this.registerHandler(JOB_TYPES.REPOSITORY_INGESTION, handleRepoIngestionJob);
   }
 
   registerHandler(type, handlerFn) {

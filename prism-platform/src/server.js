@@ -19,6 +19,7 @@ const auditRouter = require('./api/routes/audit');
 const reportsRouter = require('./api/routes/reports');
 const integrationsRouter = require('./api/routes/integrations');
 const jobsRouter = require('./api/routes/jobs');
+const repositoriesRouter = require('./api/routes/repositories');
 const { defaultWorker } = require('./queue/jobWorker');
 const { trackRequest, getPrometheusMetrics } = require('./observability/metrics');
 
@@ -68,6 +69,7 @@ app.use('/api/v1', rootCausesRouter);
 app.use('/api/v1', recommendationsRouter);
 app.use('/api/v1', reportsRouter);
 app.use('/api/v1/jobs', jobsRouter);
+app.use('/api/v1/repositories', repositoriesRouter);
 
 // Health Check
 app.get('/api/health', (req, res) => {

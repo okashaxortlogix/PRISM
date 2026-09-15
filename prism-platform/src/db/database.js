@@ -369,13 +369,62 @@ function migration006(db) {
   `);
 }
 
+/**
+ * Migration 007: Repository Ingestion, File Tree & Manifests (P1-02)
+ */
+function migration007(db) {
+  const repoCols = db.prepare('PRAGMA table_info(repositories)').all().map(c => c.name);
+  if (!repoCols.includes('commit_sha')) {
+    db.exec("ALTER TABLE repositories ADD COLUMN commit_sha TEXT;");
+  }
+  if (!repoCols.includes('file_count')) {
+    db.exec("ALTER TABLE repositories ADD COLUMN file_count INTEGER DEFAULT 0;");
+  }
+  if (!repoCols.includes('dependency_count')) {
+    db.exec("ALTER TABLE repositories ADD COLUMN dependency_count INTEGER DEFAULT 0;");
+  }
+  if (!repoCols.includes('last_ingested_at')) {
+    db.exec("ALTER TABLE repositories ADD COLUMN last_ingested_at TEXT;");
+  }
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS repository_files (
+      id TEXT PRIMARY KEY,
+      repository_id TEXT NOT NULL,
+      file_path TEXT NOT NULL,
+      language TEXT NOT NULL DEFAULT 'plaintext',
+      size_bytes INTEGER NOT NULL DEFAULT 0,
+      sha256_hash TEXT NOT NULL,
+      is_manifest BOOLEAN NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY(repository_id) REFERENCES repositories(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS repository_dependencies (
+      id TEXT PRIMARY KEY,
+      repository_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      version_spec TEXT NOT NULL DEFAULT '*',
+      ecosystem TEXT NOT NULL DEFAULT 'NPM',
+      is_dev BOOLEAN NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY(repository_id) REFERENCES repositories(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_repo_files_lookup ON repository_files(repository_id, file_path);
+    CREATE INDEX IF NOT EXISTS idx_repo_files_hash ON repository_files(sha256_hash);
+    CREATE INDEX IF NOT EXISTS idx_repo_deps_lookup ON repository_dependencies(repository_id, name);
+  `);
+}
+
 const MIGRATIONS = [
   { version: 1, name: '001_base_schema', up: migration001 },
   { version: 2, name: '002_organizations_and_users', up: migration002 },
   { version: 3, name: '003_memberships_and_sessions', up: migration003 },
   { version: 4, name: '004_integrations_and_webhooks', up: migration004 },
   { version: 5, name: '005_schema_normalization_and_indexing', up: migration005 },
-  { version: 6, name: '006_async_job_queue_and_workers', up: migration006 }
+  { version: 6, name: '006_async_job_queue_and_workers', up: migration006 },
+  { version: 7, name: '007_repository_ingestion_and_file_tree', up: migration007 }
 ];
 
 /**

@@ -388,3 +388,34 @@ CREATE INDEX IF NOT EXISTS idx_jobs_heartbeat ON jobs(status, heartbeat_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_idempotency ON jobs(idempotency_key);
 CREATE INDEX IF NOT EXISTS idx_job_checkpoints_job ON job_checkpoints(job_id, created_at);
 
+-- =====================================================
+-- REPOSITORY INGESTION, FILE TREE & MANIFESTS (P1-02)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS repository_files (
+    id TEXT PRIMARY KEY,
+    repository_id TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    language TEXT NOT NULL DEFAULT 'plaintext',
+    size_bytes INTEGER NOT NULL DEFAULT 0,
+    sha256_hash TEXT NOT NULL,
+    is_manifest BOOLEAN NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(repository_id) REFERENCES repositories(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS repository_dependencies (
+    id TEXT PRIMARY KEY,
+    repository_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    version_spec TEXT NOT NULL DEFAULT '*',
+    ecosystem TEXT NOT NULL DEFAULT 'NPM', -- NPM, GO_MODULES, MAVEN, PIP, CARGO
+    is_dev BOOLEAN NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(repository_id) REFERENCES repositories(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_repo_files_lookup ON repository_files(repository_id, file_path);
+CREATE INDEX IF NOT EXISTS idx_repo_files_hash ON repository_files(sha256_hash);
+CREATE INDEX IF NOT EXISTS idx_repo_deps_lookup ON repository_dependencies(repository_id, name);
+
+

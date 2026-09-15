@@ -8,6 +8,9 @@ const { authenticate, requireRole } = require('../../security/authMiddleware');
 const { getScopedProject } = require('../../security/tenantGuard');
 const { recordSecurityAudit } = require('../../security/auditService');
 
+const { validateRepositoryUrl, GitValidationError } = require('../../ingestion/gitValidator');
+const { jobQueue, JOB_TYPES } = require('../../queue/jobQueue');
+
 // All project routes require authentication
 router.use(authenticate);
 
@@ -86,9 +89,20 @@ router.post('/', requireRole(['ADMIN', 'OWNER']), (req, res) => {
 // POST /api/v1/projects/:projectId/repositories - requires ADMIN or OWNER
 router.post('/:projectId/repositories', requireRole(['ADMIN', 'OWNER']), (req, res) => {
   try {
-    const { url, provider = 'GITHUB', default_branch = 'main', metadata = {} } = req.body;
+    const { url, provider, default_branch = 'main', metadata = {}, async = true } = req.body;
     if (!url) {
       return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Repository url is required' } });
+    }
+
+    // Security validation of git URL
+    let validated;
+    try {
+      validated = validateRepositoryUrl(url, { allowLocalFixtures: true });
+    } catch (valErr) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: `Invalid repository URL: ${valErr.message}` }
+      });
     }
 
     // Verify parent project belongs strictly to the tenant
@@ -100,14 +114,43 @@ router.post('/:projectId/repositories', requireRole(['ADMIN', 'OWNER']), (req, r
     const db = getDatabase();
     const id = `repo_${crypto.randomUUID().substring(0, 8)}`;
     const now = new Date().toISOString();
+    const resolvedProvider = provider || validated.provider || 'GENERIC_GIT';
 
     db.prepare(`
       INSERT INTO repositories (id, project_id, provider, url, default_branch, metadata, status, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'INGESTED', ?)
-    `).run(id, project.id, provider, url, default_branch, JSON.stringify(metadata), now);
+      VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?)
+    `).run(id, project.id, resolvedProvider, url.trim(), default_branch, JSON.stringify(metadata), now);
 
     const created = db.prepare('SELECT * FROM repositories WHERE id = ?').get(id);
-    res.status(201).json({ success: true, data: created });
+
+    // Enqueue background ingestion job
+    let job = null;
+    if (async) {
+      job = jobQueue.enqueue({
+        organizationId: req.organization.id,
+        projectId: project.id,
+        type: JOB_TYPES.REPOSITORY_INGESTION,
+        payload: { repository_id: id },
+        priority: 'HIGH'
+      });
+    }
+
+    recordSecurityAudit({
+      organizationId: req.organization.id,
+      actorId: req.user.id,
+      eventType: 'REPOSITORY_CREATED',
+      targetType: 'REPOSITORY',
+      targetId: id,
+      metadata: { url: url.trim(), jobId: job ? job.id : null }
+    });
+
+    res.status(202).json({
+      success: true,
+      data: {
+        repository: created,
+        job
+      }
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: err.message } });
   }
