@@ -1,0 +1,18 @@
+# PRISM — Investigation State Machine
+
+DRAFT
+→ SCOPING
+→ INGESTING
+→ EVIDENCE_COLLECTION
+→ HYPOTHESIS_GENERATION
+→ HYPOTHESIS_TESTING
+→ VERIFICATION
+→ ROOT_CAUSE_REVIEW
+→ IMPACT_ASSESSMENT
+→ RECOMMENDATION
+→ COMPLETED
+
+Allowed side states:
+BLOCKED, FAILED, CANCELLED, NEEDS_MORE_EVIDENCE.
+
+No state transition may bypass authorization or required validation.

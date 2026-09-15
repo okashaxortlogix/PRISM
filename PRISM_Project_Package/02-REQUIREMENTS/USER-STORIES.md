@@ -1,0 +1,11 @@
+# PRISM — User Stories
+- As an engineer, I can create an investigation from a concrete failure.
+- As an engineer, I can attach a project/repository as evidence context.
+- As an engineer, I can inspect the evidence behind an AI conclusion.
+- As an engineer, I can see competing hypotheses rather than a single guessed answer.
+- As an engineer, I can see why a hypothesis was strengthened or weakened.
+- As an engineer, I can verify a proposed root cause.
+- As a lead, I can review the investigation timeline and decisions.
+- As a lead, I can export a report that another engineer can audit.
+- As an administrator, I can control integrations and permissions.
+- As an operator, I can detect failed jobs and recover them safely.
