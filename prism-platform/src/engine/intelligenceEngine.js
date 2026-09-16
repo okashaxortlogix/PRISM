@@ -94,7 +94,50 @@ function analyzeEvidenceGaps(evidenceList) {
   };
 }
 
+/**
+ * Synthesizes hypotheses autonomously using AI Gateway
+ */
+async function synthesizeHypotheses(problem, evidenceList = [], codeSymbols = []) {
+  const { AIGateway } = require('../ai/gateway');
+  const gateway = new AIGateway();
+  return gateway.synthesizeHypotheses({ problem, evidence: evidenceList, symbols: codeSymbols });
+}
+
+/**
+ * Checks whether newly collected evidence directly contradicts an existing hypothesis
+ */
+function detectContradictions(hypothesis, newEvidenceItem) {
+  const content = (typeof newEvidenceItem.content === 'string' ? newEvidenceItem.content : JSON.stringify(newEvidenceItem.content || '')).toLowerCase();
+  const statement = (hypothesis.statement || '').toLowerCase();
+  const falsification = (hypothesis.falsification_condition || '').toLowerCase();
+
+  // If new evidence is a passing test or reproduction indicating absence of the bug
+  if (newEvidenceItem.type === 'TEST_RESULT' && (content.includes('pass') || content.includes('succeeded') || content.includes('0 failures'))) {
+    if (falsification && (content.includes('stable') || content.includes('valid') || content.includes('resolved'))) {
+      return {
+        contradicts: true,
+        reason: 'New test result matches falsification condition, refuting hypothesis.'
+      };
+    }
+  }
+
+  // If hypothesis claims timeout but new telemetry shows sub-millisecond response
+  if (statement.includes('timeout') && content.includes('latency: 2ms')) {
+    return {
+      contradicts: true,
+      reason: 'Telemetry shows low latency, contradicting timeout hypothesis.'
+    };
+  }
+
+  return {
+    contradicts: false,
+    reason: null
+  };
+}
+
 module.exports = {
   evaluateHypothesisConfidence,
-  analyzeEvidenceGaps
+  analyzeEvidenceGaps,
+  synthesizeHypotheses,
+  detectContradictions
 };

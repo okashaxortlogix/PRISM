@@ -67,8 +67,18 @@ function evaluateAssertion(expectedPattern, actualOutput) {
   };
 }
 
+/**
+ * Executes an empirical experiment in the isolated subprocess sandbox
+ */
+async function runSandboxExperiment(experiment, hypothesis) {
+  const { ExecutionSandbox } = require('../sandbox/executionSandbox');
+  const sandbox = new ExecutionSandbox();
+  return sandbox.verifyHypothesis(hypothesis, experiment);
+}
+
 module.exports = {
   OUTCOMES,
   recordVerification,
-  evaluateAssertion
+  evaluateAssertion,
+  runSandboxExperiment
 };

@@ -4,7 +4,7 @@ const express = require('express');
 const router = express.Router();
 const crypto = require('node:crypto');
 const { getDatabase } = require('../../db/database');
-const { searchMemories } = require('../../engine/memoryEngine');
+const { searchMemories, semanticSearchMemories } = require('../../engine/memoryEngine');
 const { authenticate, requireRole } = require('../../security/authMiddleware');
 const { getScopedProject, getScopedInvestigation, getScopedMemory } = require('../../security/tenantGuard');
 const { recordSecurityAudit } = require('../../security/auditService');
@@ -45,7 +45,7 @@ function attachMemoryTags(db, memories) {
 router.get('/', (req, res) => {
   try {
     const db = getDatabase();
-    const { q, projectId, tag } = req.query;
+    const { q, projectId, tag, semantic } = req.query;
 
     let query = 'SELECT * FROM memories WHERE organization_id = ?';
     const params = [req.organization.id];
@@ -65,7 +65,10 @@ router.get('/', (req, res) => {
 
     attachMemoryTags(db, rawMemories);
 
-    const memories = searchMemories(rawMemories, q);
+    const memories = (semantic === 'true' && q) 
+      ? semanticSearchMemories(rawMemories, q)
+      : searchMemories(rawMemories, q);
+
     res.json({ success: true, data: memories });
   } catch (err) {
     res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: err.message } });

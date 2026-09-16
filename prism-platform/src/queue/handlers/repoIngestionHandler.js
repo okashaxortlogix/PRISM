@@ -7,6 +7,7 @@ const crypto = require('node:crypto');
 const { getDatabase } = require('../../db/database');
 const { validateRepositoryUrl } = require('../../ingestion/gitValidator');
 const { indexDirectory, resolveCommitSha } = require('../../ingestion/repoIndexer');
+const { SymbolCallGraph } = require('../../ingestion/symbolGraph');
 const { JobError, ERROR_CODES } = require('../jobErrors');
 
 async function handleRepoIngestionJob(job, { queue, checkCancellation }) {
@@ -123,6 +124,11 @@ async function handleRepoIngestionJob(job, { queue, checkCancellation }) {
         dep.is_dev ? 1 : 0,
         now
       );
+    }
+
+    // Persist AST symbols and caller-callee call graph
+    if (indexResults.symbols && indexResults.symbols.length > 0) {
+      SymbolCallGraph.persistGraph(db, repo.id, indexResults.symbols);
     }
 
     // Update repository record

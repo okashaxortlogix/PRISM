@@ -14,6 +14,9 @@ const { runWebhookSecurityTests } = require('./security/webhookSecurity.test');
 const { runSchemaNormalizationTests } = require('./database/schemaNormalization.test');
 const { runJobQueueTests } = require('./jobs/jobQueue.test');
 const { runRepoIngestionTests } = require('./ingestion/repoIngestion.test');
+const { runAstSymbolGraphTests } = require('./ingestion/astSymbolGraph.test');
+const { runIntelligencePipelineTests } = require('./intelligence/intelligencePipeline.test');
+const { runMasterE2ETests } = require('./e2e/fullInvestigationLifecycle.test');
 const assert = require('node:assert');
 
 async function runMasterTestSuite() {
@@ -109,6 +112,18 @@ async function runMasterTestSuite() {
   // 14. Repository Ingestion Suite: Git Adapter Hardening, File Tree Indexing & Manifests (P1-02)
   await runRepoIngestionTests();
   domainTestsCount += 16;
+
+  // 15. AST Parsing & Symbol Call Graphs (P1-03)
+  const astCount = runAstSymbolGraphTests();
+  domainTestsCount += astCount;
+
+  // 16. AI Gateway, Sandbox Verification, Decision & Semantic Vector Memory (P1-04, P1-05, P1-06, P2-01)
+  const intelCount = await runIntelligencePipelineTests();
+  domainTestsCount += intelCount;
+
+  // 17. Master End-to-End Investigation Lifecycle Integration
+  const e2eCount = await runMasterE2ETests();
+  domainTestsCount += e2eCount;
 
   const total = domainTestsCount + securityTestsCount;
 

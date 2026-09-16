@@ -42,7 +42,36 @@ function searchMemories(memories, query) {
     .sort((a, b) => b.relevanceScore - a.relevanceScore);
 }
 
+/**
+ * Semantic vector search for historical memories using dense embeddings
+ */
+function semanticSearchMemories(memories, query, minSimilarity = 0.05) {
+  if (!query || !Array.isArray(memories) || memories.length === 0) return memories;
+  const { generateEmbedding, cosineSimilarity } = require('../ai/embeddings');
+
+  const queryVector = generateEmbedding(query);
+
+  return memories
+    .map(mem => {
+      const memText = `${mem.title} ${mem.summary} ${mem.root_cause} ${mem.resolution} ${mem.tags || ''}`;
+      const memVector = mem.embedding ? (typeof mem.embedding === 'string' ? JSON.parse(mem.embedding) : mem.embedding) : generateEmbedding(memText);
+      const similarity = cosineSimilarity(queryVector, memVector);
+      const freshness = calculateFreshness(mem.created_at);
+      const compositeScore = Number(((similarity * 0.7) + (freshness * 0.3)).toFixed(3));
+
+      return {
+        ...mem,
+        similarity,
+        freshness,
+        compositeScore
+      };
+    })
+    .filter(m => m.similarity >= minSimilarity)
+    .sort((a, b) => b.compositeScore - a.compositeScore);
+}
+
 module.exports = {
   calculateFreshness,
-  searchMemories
+  searchMemories,
+  semanticSearchMemories
 };

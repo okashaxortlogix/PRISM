@@ -48,6 +48,22 @@ class JobWorker {
     this.handlers.set(type, handlerFn);
   }
 
+  /**
+   * Directly processes the next queued job synchronously (useful for tests and on-demand worker runs)
+   */
+  async processNextJob(options = {}) {
+    const claimedJobs = this.queue.claim(this.id, {
+      types: this.types,
+      batchSize: 1,
+      ...options
+    });
+    if (claimedJobs.length > 0) {
+      await this._executeJob(claimedJobs[0]);
+      return claimedJobs[0];
+    }
+    return null;
+  }
+
   start() {
     if (this.state === WORKER_STATES.RUNNING || this.state === WORKER_STATES.STARTING) {
       return;

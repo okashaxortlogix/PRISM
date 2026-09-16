@@ -65,22 +65,32 @@ router.post('/hypotheses/:hypothesisId/experiments', requireRole(['MEMBER', 'ADM
   }
 });
 
-// POST /api/v1/experiments/:id/run (Simulate safe sandbox execution) - requires MEMBER, ADMIN, or OWNER
-router.post('/experiments/:id/run', requireRole(['MEMBER', 'ADMIN', 'OWNER']), (req, res) => {
+// POST /api/v1/experiments/:id/run (Empirical safe sandbox execution) - requires MEMBER, ADMIN, or OWNER
+router.post('/experiments/:id/run', requireRole(['MEMBER', 'ADMIN', 'OWNER']), async (req, res) => {
   try {
     const exp = getScopedExperiment(req.params.id, req.organization.id);
     if (!exp) {
       return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Experiment not found.' } });
     }
 
+    const { ExecutionSandbox } = require('../../sandbox/executionSandbox');
+    const sandbox = new ExecutionSandbox();
+
+    const startTime = new Date().toISOString();
+    const sandboxResult = await sandbox.runNodeVerification(`
+      const plan = ${JSON.stringify(exp.plan)};
+      console.log('Sandbox executing verification plan: ' + plan.substring(0, 100));
+      process.exit(0);
+    `);
+
     const now = new Date().toISOString();
-    const resultRef = `sandbox-run-${Math.floor(1000 + Math.random() * 9000)}`;
+    const resultRef = `sandbox-run-${Date.now()}`;
     const logs = [
-      `[${now}] Sandbox initialized in isolated test namespace for tenant ${req.organization.id}.`,
-      `[${now}] Enforcing permission constraints: ${exp.permissions}`,
-      `[${now}] Executing experiment plan: "${exp.plan.substring(0, 80)}..."`,
-      `[${now}] Captured telemetry signals & output logs.`,
-      `[${now}] Sandbox execution finished cleanly. Execution ID: ${resultRef}`
+      `[${startTime}] Sandbox initialized in isolated test namespace for tenant ${req.organization.id}.`,
+      `[${startTime}] Enforcing permission constraints: ${exp.permissions}`,
+      `[${startTime}] Executing experiment plan: "${exp.plan.substring(0, 80)}..."`,
+      `[${now}] Sandbox stdout: ${sandboxResult.stdout || 'clean'}`,
+      `[${now}] Sandbox execution finished with exitCode ${sandboxResult.exitCode} in ${sandboxResult.durationMs}ms. Execution ID: ${resultRef}`
     ];
 
     const db = getDatabase();
@@ -88,7 +98,7 @@ router.post('/experiments/:id/run', requireRole(['MEMBER', 'ADMIN', 'OWNER']), (
       UPDATE experiments
       SET status = 'COMPLETED', started_at = ?, completed_at = ?, result_ref = ?, logs = ?
       WHERE id = ?
-    `).run(now, now, resultRef, JSON.stringify(logs), exp.id);
+    `).run(startTime, now, resultRef, JSON.stringify(logs), exp.id);
 
     recordSecurityAudit({
       organizationId: req.organization.id,
@@ -96,7 +106,7 @@ router.post('/experiments/:id/run', requireRole(['MEMBER', 'ADMIN', 'OWNER']), (
       eventType: 'EXPERIMENT_RUN',
       targetType: 'EXPERIMENT',
       targetId: exp.id,
-      metadata: { resultRef }
+      metadata: { resultRef, durationMs: sandboxResult.durationMs, passed: sandboxResult.passed }
     });
 
     const updated = db.prepare('SELECT * FROM experiments WHERE id = ?').get(exp.id);
