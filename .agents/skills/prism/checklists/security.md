@@ -1,0 +1,21 @@
+# PRISM Security Checklist
+
+- [ ] Authentication
+- [ ] Session handling
+- [ ] RBAC
+- [ ] Tenant isolation
+- [ ] IDOR checks
+- [ ] Secret handling
+- [ ] Webhook signature verification
+- [ ] Replay protection
+- [ ] Input validation
+- [ ] Command injection defense
+- [ ] Path traversal defense
+- [ ] SSRF considerations
+- [ ] Sandbox isolation
+- [ ] Resource limits
+- [ ] CORS/CSP/security headers
+- [ ] Audit logging
+- [ ] Sensitive-data redaction
+- [ ] Network egress controls
+- [ ] Dependency/security review
