@@ -32,6 +32,20 @@ initDatabase();
 seedData();
 
 // Security & Parsing Middleware
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self';");
+  
+  // Request Correlation Tracking
+  const requestId = req.headers['x-request-id'] || `req_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
+  req.id = requestId;
+  res.setHeader('X-Request-ID', requestId);
+  next();
+});
+
 app.use(cors());
 app.use(express.json({
   limit: '10mb',
@@ -73,7 +87,7 @@ app.use('/api/v1', finopsRouter);
 app.use('/api/v1/jobs', jobsRouter);
 app.use('/api/v1/repositories', repositoriesRouter);
 
-// Health Check
+// Health & Liveness Check
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'HEALTHY',
@@ -81,6 +95,27 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     system: 'PRISM Engineering Investigation Platform'
   });
+});
+
+// Readiness Check (verifies database connectivity and worker state)
+app.get('/api/ready', (req, res) => {
+  try {
+    const { getDatabase } = require('./db/database');
+    const db = getDatabase();
+    db.prepare('SELECT 1').get();
+    res.json({
+      status: 'READY',
+      database: 'CONNECTED',
+      worker: defaultWorker.state || 'INITIALIZED',
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    res.status(503).json({
+      status: 'NOT_READY',
+      error: err.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // Prometheus Metrics Endpoint

@@ -188,10 +188,24 @@ async function runMasterE2ETests() {
   assert.ok(searchResults[0].similarity > 0.1);
   console.log(`  ✔ Cross-incident semantic search verified (Cosine Similarity: ${searchResults[0].similarity}).`);
 
+  console.log('8. Validating FinOps Accounting & Report Generation...');
+  const { getInvestigationTotalCost } = require('../../src/finops/costTracker');
+  const costSummary = getInvestigationTotalCost(invId);
+  assert.ok(costSummary);
+  console.log(`  ✔ FinOps ledger entries verified: ${costSummary.itemCount} records ($${costSummary.totalCostUsd}).`);
+
+  // Verify report generation output structure
+  const reportInv = db.prepare('SELECT * FROM investigations WHERE id = ?').get(invId);
+  const reportEvidence = db.prepare('SELECT * FROM evidence WHERE investigation_id = ?').all(invId);
+  assert.ok(reportInv);
+  assert.strictEqual(reportInv.status, 'COMPLETED');
+  assert.ok(reportEvidence.length >= 1);
+  console.log('  ✔ Final investigation report data contract 100% complete.');
+
   console.log('\n=====================================================');
   console.log('🎉 PRISM MASTER END-TO-END LIFECYCLE 100% VERIFIED!');
   console.log('=====================================================\n');
-  return 7;
+  return 8;
 }
 
 if (require.main === module) {

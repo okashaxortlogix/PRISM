@@ -144,13 +144,14 @@ async function handleInvestigationJob(job, { queue, checkCancellation }) {
       const verId = `ver_${crypto.randomUUID().substring(0, 8)}`;
       db.prepare(`
         INSERT OR REPLACE INTO verifications (id, experiment_id, claim, method, expected_result, actual_result, outcome, performed_by, performed_at, limitations)
-        VALUES (?, ?, ?, 'SANDBOX_REPRODUCTION', ?, ?, 'VERIFIED', 'PRISM_BACKGROUND_WORKER', datetime('now'), 'Sandbox memory bounded')
+        VALUES (?, ?, ?, 'SANDBOX_REPRODUCTION', ?, ?, ?, 'PRISM_BACKGROUND_WORKER', datetime('now'), 'Sandbox memory bounded')
       `).run(
         verId,
         exp.id,
         topHypothesis.statement,
         'Sandbox reproduction matches expected failure or confirms hypothesis',
-        sandboxOutcome.notes
+        sandboxOutcome.notes,
+        sandboxOutcome.outcome || 'VERIFIED'
       );
 
       db.prepare("UPDATE experiments SET status = 'COMPLETED', completed_at = datetime('now'), result_ref = ? WHERE id = ?").run(verId, exp.id);
