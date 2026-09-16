@@ -417,6 +417,49 @@ function migration007(db) {
   `);
 }
 
+/**
+ * Migration 008: AST Parsing, Symbol Tables & Call Graphs (P1-03)
+ */
+function migration008(db) {
+  const hypCols = db.prepare('PRAGMA table_info(hypotheses)').all().map(c => c.name);
+  if (!hypCols.includes('falsification_condition')) {
+    db.exec("ALTER TABLE hypotheses ADD COLUMN falsification_condition TEXT;");
+  }
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS repository_symbols (
+      id TEXT PRIMARY KEY,
+      repository_id TEXT NOT NULL,
+      file_path TEXT NOT NULL,
+      name TEXT NOT NULL,
+      kind TEXT NOT NULL, -- FUNCTION, CLASS, METHOD, INTERFACE, VARIABLE
+      start_line INTEGER NOT NULL,
+      end_line INTEGER NOT NULL,
+      parameters TEXT NOT NULL DEFAULT '[]',
+      documentation TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY(repository_id) REFERENCES repositories(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS symbol_call_graphs (
+      id TEXT PRIMARY KEY,
+      repository_id TEXT NOT NULL,
+      caller_symbol_id TEXT NOT NULL,
+      callee_name TEXT NOT NULL,
+      callee_symbol_id TEXT,
+      call_site_line INTEGER,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY(repository_id) REFERENCES repositories(id) ON DELETE CASCADE,
+      FOREIGN KEY(caller_symbol_id) REFERENCES repository_symbols(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_repo_symbols_repo_name ON repository_symbols(repository_id, name);
+    CREATE INDEX IF NOT EXISTS idx_repo_symbols_file ON repository_symbols(repository_id, file_path);
+    CREATE INDEX IF NOT EXISTS idx_symbol_calls_caller ON symbol_call_graphs(caller_symbol_id);
+    CREATE INDEX IF NOT EXISTS idx_symbol_calls_callee ON symbol_call_graphs(repository_id, callee_name);
+  `);
+}
+
 const MIGRATIONS = [
   { version: 1, name: '001_base_schema', up: migration001 },
   { version: 2, name: '002_organizations_and_users', up: migration002 },
@@ -424,7 +467,8 @@ const MIGRATIONS = [
   { version: 4, name: '004_integrations_and_webhooks', up: migration004 },
   { version: 5, name: '005_schema_normalization_and_indexing', up: migration005 },
   { version: 6, name: '006_async_job_queue_and_workers', up: migration006 },
-  { version: 7, name: '007_repository_ingestion_and_file_tree', up: migration007 }
+  { version: 7, name: '007_repository_ingestion_and_file_tree', up: migration007 },
+  { version: 8, name: '008_ast_symbols_and_call_graphs', up: migration008 }
 ];
 
 /**

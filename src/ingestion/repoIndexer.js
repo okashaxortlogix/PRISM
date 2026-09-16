@@ -4,6 +4,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { parseCodeEntities } = require('./astParser');
 
 const LANGUAGE_EXTENSIONS = {
   '.js': 'JavaScript',
@@ -176,7 +177,8 @@ function parseRequirementsTxt(content) {
 /**
  * Recursively walks directory tree and indexes files & manifests
  */
-function indexDirectory(rootPath, currentRelPath = '', results = { files: [], dependencies: [] }) {
+function indexDirectory(rootPath, currentRelPath = '', results = { files: [], dependencies: [], symbols: [] }) {
+  if (!results.symbols) results.symbols = [];
   const dirPath = path.join(rootPath, currentRelPath);
   if (!fs.existsSync(dirPath)) {
     return results;
@@ -232,6 +234,15 @@ function indexDirectory(rootPath, currentRelPath = '', results = { files: [], de
           results.dependencies.push(...parseGoMod(contentStr));
         } else if (isReqTxt) {
           results.dependencies.push(...parseRequirementsTxt(contentStr));
+        }
+
+        // Parse AST symbols for source code files
+        const codeExtensions = new Set(['.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.py', '.go']);
+        if (codeExtensions.has(ext)) {
+          const { symbols } = parseCodeEntities(contentStr, relFilePath);
+          if (symbols && symbols.length > 0) {
+            results.symbols.push({ filePath: relFilePath, symbols });
+          }
         }
       } catch (err) {
         // Safe skip on unreadable file

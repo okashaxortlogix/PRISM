@@ -199,7 +199,7 @@ pydantic~=2.5.0
   assert.ok(indexRes.files.length > 10, 'Must discover repository source files');
   assert.ok(indexRes.dependencies.length > 0, 'Must discover repository dependencies from package.json');
 
-  const gitFiles = indexRes.files.filter(f => f.file_path.includes('.git/') || f.file_path.startsWith('.git'));
+  const gitFiles = indexRes.files.filter(f => f.file_path === '.git' || f.file_path.startsWith('.git/') || f.file_path.includes('/.git/'));
   assert.strictEqual(gitFiles.length, 0, '.git files must be excluded');
   const nodeModulesFiles = indexRes.files.filter(f => f.file_path.includes('node_modules/'));
   assert.strictEqual(nodeModulesFiles.length, 0, 'node_modules files must be excluded');

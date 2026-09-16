@@ -140,6 +140,16 @@ class JobQueue {
         params.push(...types);
       }
 
+      if (options.organizationId) {
+        query += ' AND organization_id = ?';
+        params.push(options.organizationId);
+      }
+
+      if (options.jobId) {
+        query += ' AND id = ?';
+        params.push(options.jobId);
+      }
+
       // Priority ordering: HIGH (3) -> NORMAL (2) -> LOW (1), then earliest scheduled_at
       query += `
         ORDER BY 

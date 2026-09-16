@@ -140,6 +140,107 @@ router.get('/:id/dependencies', (req, res) => {
   }
 });
 
+// GET /api/v1/repositories/:id/symbols - discovered code symbols (functions, classes, methods)
+router.get('/:id/symbols', (req, res) => {
+  try {
+    const repo = getScopedRepository(req.params.id, req.organization.id);
+    if (!repo) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Repository not found.' }
+      });
+    }
+
+    const { kind, file_path, name } = req.query;
+    const db = getDatabase();
+
+    let query = 'SELECT * FROM repository_symbols WHERE repository_id = ?';
+    const params = [repo.id];
+
+    if (kind) {
+      query += ' AND kind = ?';
+      params.push(kind.toUpperCase());
+    }
+    if (file_path) {
+      query += ' AND file_path LIKE ?';
+      params.push(`%${file_path}%`);
+    }
+    if (name) {
+      query += ' AND name LIKE ?';
+      params.push(`%${name}%`);
+    }
+
+    query += ' ORDER BY file_path ASC, start_line ASC';
+    const rawSymbols = db.prepare(query).all(...params);
+    const symbols = rawSymbols.map(s => ({
+      ...s,
+      parameters: JSON.parse(s.parameters || '[]')
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        repositoryId: repo.id,
+        count: symbols.length,
+        symbols
+      }
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: err.message }
+    });
+  }
+});
+
+// GET /api/v1/repositories/:id/call-graph - caller-callee call graph & blast radius
+router.get('/:id/call-graph', (req, res) => {
+  try {
+    const repo = getScopedRepository(req.params.id, req.organization.id);
+    if (!repo) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Repository not found.' }
+      });
+    }
+
+    const { SymbolCallGraph } = require('../../ingestion/symbolGraph');
+    const graph = SymbolCallGraph.fromDatabase(getDatabase(), repo.id);
+
+    const { symbol, depth } = req.query;
+    if (symbol) {
+      const blastRadius = graph.getBlastRadius(symbol, depth ? parseInt(depth, 10) : 3);
+      return res.json({
+        success: true,
+        data: blastRadius
+      });
+    }
+
+    const db = getDatabase();
+    const calls = db.prepare(`
+      SELECT c.id, c.caller_symbol_id, s.name as caller_name, s.file_path, c.callee_name, c.callee_symbol_id, c.call_site_line
+      FROM symbol_call_graphs c
+      JOIN repository_symbols s ON c.caller_symbol_id = s.id
+      WHERE c.repository_id = ?
+      ORDER BY s.file_path ASC, c.call_site_line ASC
+    `).all(repo.id);
+
+    res.json({
+      success: true,
+      data: {
+        repositoryId: repo.id,
+        totalCalls: calls.length,
+        calls
+      }
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: err.message }
+    });
+  }
+});
+
 // POST /api/v1/repositories/:id/sync - trigger background re-ingestion & indexing
 router.post('/:id/sync', requireRole(['MEMBER', 'ADMIN', 'OWNER']), (req, res) => {
   try {

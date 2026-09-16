@@ -126,6 +126,7 @@ CREATE TABLE IF NOT EXISTS hypotheses (
     status TEXT NOT NULL DEFAULT 'PROPOSED',
     confidence REAL NOT NULL DEFAULT 0.5,
     rationale TEXT NOT NULL,
+    falsification_condition TEXT,
     supporting_evidence_ids TEXT DEFAULT '[]', -- Kept for backward compatibility; relational source is hypothesis_evidence
     conflicting_evidence_ids TEXT DEFAULT '[]', -- Kept for backward compatibility; relational source is hypothesis_evidence
     created_at TEXT NOT NULL,
@@ -417,5 +418,40 @@ CREATE TABLE IF NOT EXISTS repository_dependencies (
 CREATE INDEX IF NOT EXISTS idx_repo_files_lookup ON repository_files(repository_id, file_path);
 CREATE INDEX IF NOT EXISTS idx_repo_files_hash ON repository_files(sha256_hash);
 CREATE INDEX IF NOT EXISTS idx_repo_deps_lookup ON repository_dependencies(repository_id, name);
+
+-- =====================================================
+-- AST SYMBOL TABLES & CALL GRAPHS (P1-03)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS repository_symbols (
+    id TEXT PRIMARY KEY,
+    repository_id TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    name TEXT NOT NULL,
+    kind TEXT NOT NULL, -- FUNCTION, CLASS, METHOD, INTERFACE, VARIABLE
+    start_line INTEGER NOT NULL,
+    end_line INTEGER NOT NULL,
+    parameters TEXT NOT NULL DEFAULT '[]',
+    documentation TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(repository_id) REFERENCES repositories(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS symbol_call_graphs (
+    id TEXT PRIMARY KEY,
+    repository_id TEXT NOT NULL,
+    caller_symbol_id TEXT NOT NULL,
+    callee_name TEXT NOT NULL,
+    callee_symbol_id TEXT,
+    call_site_line INTEGER,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(repository_id) REFERENCES repositories(id) ON DELETE CASCADE,
+    FOREIGN KEY(caller_symbol_id) REFERENCES repository_symbols(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_repo_symbols_repo_name ON repository_symbols(repository_id, name);
+CREATE INDEX IF NOT EXISTS idx_repo_symbols_file ON repository_symbols(repository_id, file_path);
+CREATE INDEX IF NOT EXISTS idx_symbol_calls_caller ON symbol_call_graphs(caller_symbol_id);
+CREATE INDEX IF NOT EXISTS idx_symbol_calls_callee ON symbol_call_graphs(repository_id, callee_name);
+
 
 

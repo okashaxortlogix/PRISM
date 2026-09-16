@@ -122,7 +122,7 @@ class SymbolCallGraph {
 
     for (const file of rawParsedFiles) {
       for (const sym of file.symbols) {
-        const symbolId = `sym_${crypto.randomUUID().substring(0, 8)}`;
+        const symbolId = `sym_${crypto.randomUUID().replace(/-/g, '')}`;
         sym.id = symbolId;
         sym.filePath = file.filePath;
         nameToId.set(sym.name, symbolId);
@@ -149,7 +149,7 @@ class SymbolCallGraph {
         if (sym.calls && Array.isArray(sym.calls)) {
           for (const call of sym.calls) {
             const calleeId = nameToId.get(call.name) || null;
-            const callId = `call_${crypto.randomUUID().substring(0, 8)}`;
+            const callId = `call_${crypto.randomUUID().replace(/-/g, '')}`;
             insertCall.run(
               callId,
               repositoryId,
@@ -164,12 +164,8 @@ class SymbolCallGraph {
     };
 
     if (typeof db.transaction === 'function') {
-      try {
-        const tx = db.transaction(executeInserts);
-        tx();
-      } catch (_) {
-        executeInserts();
-      }
+      const tx = db.transaction(executeInserts);
+      tx();
     } else {
       executeInserts();
     }

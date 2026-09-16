@@ -48,22 +48,49 @@ async function handleRepoIngestionJob(job, { queue, checkCancellation }) {
   queue.checkpoint(job.id, 'FETCHING_FILES', 40, { sourceType: validated.type });
   if (checkCancellation()) throw new JobError(ERROR_CODES.CANCELLED, 'Ingestion cancelled by user');
 
+  const candidateRoots = [
+    path.resolve(__dirname, '../../'),
+    path.resolve(__dirname, '../../../'),
+    path.resolve(__dirname, '../../../../'),
+    process.cwd()
+  ];
+
   let sourceDirectory = null;
   if (validated.type === 'LOCAL_FIXTURE') {
-    sourceDirectory = path.isAbsolute(validated.path)
-      ? validated.path
-      : path.join(workspaceRoot, validated.path);
-  } else {
-    // For remote git URLs, check if local checkout or cache exists; if not, use platformRoot
-    const repoSlug = repo.url.split('/').pop().replace('.git', '');
-    const localWorkspaceCheck = path.join(workspaceRoot, repoSlug);
-    const localPlatformCheck = path.join(platformRoot, repoSlug);
-    if (fs.existsSync(localWorkspaceCheck)) {
-      sourceDirectory = localWorkspaceCheck;
-    } else if (fs.existsSync(localPlatformCheck)) {
-      sourceDirectory = localPlatformCheck;
+    if (path.isAbsolute(validated.path)) {
+      sourceDirectory = validated.path;
     } else {
-      sourceDirectory = platformRoot;
+      for (const r of candidateRoots) {
+        const candidate = path.join(r, validated.path);
+        if (fs.existsSync(candidate)) {
+          sourceDirectory = candidate;
+          break;
+        }
+      }
+      if (!sourceDirectory) {
+        sourceDirectory = path.join(process.cwd(), validated.path);
+      }
+    }
+  } else {
+    // For remote git URLs, check if local checkout or cache exists; if not, use process.cwd()
+    const repoSlug = repo.url.split('/').pop().replace('.git', '');
+    for (const r of candidateRoots) {
+      const candidate = path.join(r, repoSlug);
+      if (fs.existsSync(candidate)) {
+        sourceDirectory = candidate;
+        break;
+      }
+    }
+    if (!sourceDirectory) {
+      for (const r of candidateRoots) {
+        if (fs.existsSync(path.join(r, 'package.json'))) {
+          sourceDirectory = r;
+          break;
+        }
+      }
+      if (!sourceDirectory) {
+        sourceDirectory = process.cwd();
+      }
     }
   }
 
