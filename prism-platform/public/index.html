@@ -51,6 +51,10 @@
     </div>
 
     <div class="header-right">
+      <button id="btn-finops-modal" class="btn btn-secondary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"></path><path d="M12 6v2m0 8v2"></path></svg>
+        FinOps Cost (<span id="finops-header-cost">$0.00</span>)
+      </button>
       <button id="btn-memory-search" class="btn btn-secondary">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
         Memory Bank
@@ -153,6 +157,12 @@
         </button>
         <button class="tab-btn" data-tab="tab-recommendations">
           Recommendations & Trade-offs
+        </button>
+        <button class="tab-btn" data-tab="tab-codeintel">
+          Repository & AST Intel <span id="badge-symbols-count" class="tab-counter">0</span>
+        </button>
+        <button class="tab-btn" data-tab="tab-jobs">
+          Background Jobs <span id="badge-jobs-count" class="tab-counter">0</span>
         </button>
       </nav>
 
@@ -298,6 +308,61 @@
 
         <div id="recommendations-list" class="recommendations-stack">
           <!-- Dynamically populated recommendations -->
+        </div>
+      </div>
+
+      <!-- Tab 6: Repository & AST Code Intel -->
+      <div id="tab-codeintel" class="tab-pane">
+        <div class="pane-toolbar">
+          <div class="toolbar-left">
+            <span class="toolbar-title">Repository File Tree & AST Symbol Hierarchy</span>
+            <span class="subtext">Deterministic syntax tree parsing, call-graph tracking, and immutable commit hashes</span>
+          </div>
+          <div class="toolbar-right">
+            <button id="btn-refresh-codeintel" class="btn btn-secondary btn-sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+              Refresh AST
+            </button>
+            <button id="btn-trigger-ingest" class="btn btn-primary btn-sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              Ingest Repository
+            </button>
+          </div>
+        </div>
+
+        <div class="split-verification-layout">
+          <div class="verification-col">
+            <h3 class="section-heading">Repository Files & Commits</h3>
+            <div id="repo-files-list" class="experiments-stack">
+              <div class="subtext" style="padding: 10px;">Select a repository to view indexed files and SHA-256 hashes...</div>
+            </div>
+          </div>
+          <div class="verification-col">
+            <h3 class="section-heading">Parsed AST Symbols & Call Graph</h3>
+            <div id="repo-symbols-list" class="verifications-stack">
+              <div class="subtext" style="padding: 10px;">No symbols selected. Click a file or refresh to view AST nodes...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 7: Background Jobs Monitor -->
+      <div id="tab-jobs" class="tab-pane">
+        <div class="pane-toolbar">
+          <div class="toolbar-left">
+            <span class="toolbar-title">Asynchronous Background Job Queue</span>
+            <span class="subtext">Durable leases, priority scoring, checkpointing, and crash recovery</span>
+          </div>
+          <div class="toolbar-right">
+            <button id="btn-refresh-jobs" class="btn btn-secondary btn-sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+              Refresh Jobs
+            </button>
+          </div>
+        </div>
+
+        <div id="jobs-list" class="hypotheses-stack">
+          <!-- Dynamically populated background jobs -->
         </div>
       </div>
     </main>
@@ -513,7 +578,48 @@
         <button id="btn-submit-rootcause" class="btn btn-accent">Synthesize Root Cause</button>
       </div>
     </div>
-  <!-- 8. Authentication Modal (Login / Register) -->
+  </div>
+
+  <!-- 8. FinOps Cost Analytics Modal -->
+  <div id="modal-finops" class="prism-modal-backdrop">
+    <div class="prism-modal modal-lg">
+      <div class="modal-header">
+        <h3>FinOps Real-Time Cost & Resource Accounting</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="rootcause-dashboard-grid" style="margin-bottom: 16px;">
+          <div class="dash-card">
+            <div class="card-header-badge">
+              <span class="label">INVESTIGATION COST</span>
+              <span id="finops-inv-cost-badge" class="badge badge-success">$0.0000</span>
+            </div>
+            <div id="finops-inv-breakdown" class="impact-details-box" style="font-size: 0.8rem;">
+              <div>Loading investigation costs...</div>
+            </div>
+          </div>
+          <div class="dash-card">
+            <div class="card-header-badge">
+              <span class="label">ORGANIZATION BUDGET STATUS</span>
+              <span id="finops-org-spend-badge" class="badge badge-status">$0.00 / $100.00</span>
+            </div>
+            <div id="finops-org-breakdown" class="impact-details-box" style="font-size: 0.8rem;">
+              <div>Loading organization spend summary...</div>
+            </div>
+          </div>
+        </div>
+        <h4 class="section-heading">Recent FinOps Durable Ledger Entries</h4>
+        <div id="finops-records-list" class="verifications-stack" style="max-height: 240px; overflow-y: auto;">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary modal-close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9. Authentication Modal (Login / Register) -->
   <div id="modal-auth" class="prism-modal-backdrop">
     <div class="prism-modal">
       <div class="modal-header">

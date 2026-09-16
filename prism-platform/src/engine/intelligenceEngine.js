@@ -43,11 +43,19 @@ function evaluateHypothesisConfidence(hypothesis, allEvidenceList) {
   const rawScore = (totalSupportScore / (totalSupportScore + 0.6)) - (totalConflictPenalty * 0.4);
   const confidence = Math.max(0.05, Math.min(0.99, Number(rawScore.toFixed(2))));
 
-  let status = 'PLAUSIBLE';
-  if (conflictingIds.length > 0 && confidence < 0.4) {
+  let status = 'SUPPORTED';
+  if (hypothesis.status === 'CONFIRMED' || hypothesis.verified) {
+    status = 'CONFIRMED';
+  } else if (conflictingIds.length > 0 && confidence < 0.35) {
+    status = 'CONTRADICTED';
+  } else if (conflictingIds.length > 0) {
     status = 'DISPUTED';
-  } else if (confidence >= 0.75 && conflictingIds.length === 0) {
-    status = 'HIGHLY_LIKELY';
+  } else if (confidence >= 0.80 && supportingIds.length >= 2) {
+    status = 'STRONGLY_SUPPORTED';
+  } else if (confidence >= 0.50) {
+    status = 'SUPPORTED';
+  } else {
+    status = 'INVESTIGATING';
   }
 
   return {
@@ -97,10 +105,16 @@ function analyzeEvidenceGaps(evidenceList) {
 /**
  * Synthesizes hypotheses autonomously using AI Gateway
  */
-async function synthesizeHypotheses(problem, evidenceList = [], codeSymbols = []) {
+async function synthesizeHypotheses(problem, evidenceList = [], codeSymbols = [], options = {}) {
   const { AIGateway } = require('../ai/gateway');
   const gateway = new AIGateway();
-  return gateway.synthesizeHypotheses({ problem, evidence: evidenceList, symbols: codeSymbols });
+  return gateway.synthesizeHypotheses({
+    problem,
+    evidence: evidenceList,
+    symbols: codeSymbols,
+    organizationId: options.organizationId,
+    investigationId: options.investigationId
+  });
 }
 
 /**

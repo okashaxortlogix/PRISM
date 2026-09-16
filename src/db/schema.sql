@@ -150,6 +150,9 @@ CREATE TABLE IF NOT EXISTS experiments (
     id TEXT PRIMARY KEY,
     hypothesis_id TEXT NOT NULL,
     plan TEXT NOT NULL,
+    script TEXT,
+    timeout_ms INTEGER DEFAULT 5000,
+    max_memory_mb INTEGER DEFAULT 256,
     permissions TEXT DEFAULT '["READ_ONLY"]',
     status TEXT NOT NULL DEFAULT 'PENDING',
     started_at TEXT,
@@ -180,7 +183,11 @@ CREATE TABLE IF NOT EXISTS root_causes (
     investigation_id TEXT NOT NULL,
     statement TEXT NOT NULL,
     confidence REAL NOT NULL DEFAULT 0.9,
+    confidence_state TEXT NOT NULL DEFAULT 'PROBABLE', -- CONFIRMED, PROBABLE, POSSIBLE, UNKNOWN, CONTRADICTED, NOT_TESTED
     supporting_evidence TEXT NOT NULL, -- Kept for backward compatibility; relational source is root_cause_evidence
+    contradicting_evidence TEXT DEFAULT '[]',
+    affected_components TEXT DEFAULT '[]',
+    unknowns TEXT DEFAULT '[]',
     verification_ref TEXT NOT NULL,
     created_at TEXT NOT NULL,
     FOREIGN KEY(investigation_id) REFERENCES investigations(id) ON DELETE CASCADE,
@@ -218,6 +225,10 @@ CREATE TABLE IF NOT EXISTS recommendations (
     tradeoffs TEXT NOT NULL,
     risk TEXT NOT NULL,
     priority TEXT NOT NULL DEFAULT 'P1',
+    affected_components TEXT DEFAULT '[]',
+    implementation_impact TEXT,
+    verification_method TEXT,
+    unknowns TEXT,
     evidence_ref TEXT,
     created_at TEXT NOT NULL,
     FOREIGN KEY(investigation_id) REFERENCES investigations(id) ON DELETE CASCADE
@@ -246,6 +257,8 @@ CREATE TABLE IF NOT EXISTS memories (
     resolution TEXT NOT NULL,
     tags TEXT NOT NULL, -- JSON array kept for backward compatibility; relational source is memory_tags
     freshness_score REAL NOT NULL DEFAULT 1.0,
+    is_current_truth INTEGER NOT NULL DEFAULT 0,
+    provenance_type TEXT NOT NULL DEFAULT 'HISTORICAL_ARCHIVE',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     FOREIGN KEY(organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
@@ -452,6 +465,24 @@ CREATE INDEX IF NOT EXISTS idx_repo_symbols_repo_name ON repository_symbols(repo
 CREATE INDEX IF NOT EXISTS idx_repo_symbols_file ON repository_symbols(repository_id, file_path);
 CREATE INDEX IF NOT EXISTS idx_symbol_calls_caller ON symbol_call_graphs(caller_symbol_id);
 CREATE INDEX IF NOT EXISTS idx_symbol_calls_callee ON symbol_call_graphs(repository_id, callee_name);
+
+-- Durable FinOps Cost Tracking Table (Phase 15 / Migration 009)
+CREATE TABLE IF NOT EXISTS finops_cost_records (
+    id TEXT PRIMARY KEY,
+    organization_id TEXT NOT NULL,
+    investigation_id TEXT,
+    type TEXT NOT NULL, -- MODEL_INPUT_TOKENS, MODEL_OUTPUT_TOKENS, SANDBOX_SECONDS, STORAGE_BYTES, TOOL_CALLS
+    quantity REAL NOT NULL,
+    provider TEXT,
+    model TEXT,
+    cost_usd REAL NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
+    FOREIGN KEY(investigation_id) REFERENCES investigations(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_finops_org_created ON finops_cost_records(organization_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_finops_inv_created ON finops_cost_records(investigation_id, created_at);
 
 
 

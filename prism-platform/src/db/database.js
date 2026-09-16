@@ -460,6 +460,82 @@ function migration008(db) {
   `);
 }
 
+/**
+ * Migration 009: FinOps Durable Cost Tracking & Entity Completeness (P1-05, P1-06, Phase 15)
+ */
+function migration009(db) {
+  // 1. Experiments table columns
+  const expCols = db.prepare('PRAGMA table_info(experiments)').all().map(c => c.name);
+  if (!expCols.includes('script')) {
+    db.exec("ALTER TABLE experiments ADD COLUMN script TEXT");
+  }
+  if (!expCols.includes('timeout_ms')) {
+    db.exec("ALTER TABLE experiments ADD COLUMN timeout_ms INTEGER DEFAULT 5000");
+  }
+  if (!expCols.includes('max_memory_mb')) {
+    db.exec("ALTER TABLE experiments ADD COLUMN max_memory_mb INTEGER DEFAULT 256");
+  }
+
+  // 2. Root causes table columns
+  const rcCols = db.prepare('PRAGMA table_info(root_causes)').all().map(c => c.name);
+  if (!rcCols.includes('confidence_state')) {
+    db.exec("ALTER TABLE root_causes ADD COLUMN confidence_state TEXT NOT NULL DEFAULT 'PROBABLE'");
+  }
+  if (!rcCols.includes('contradicting_evidence')) {
+    db.exec("ALTER TABLE root_causes ADD COLUMN contradicting_evidence TEXT DEFAULT '[]'");
+  }
+  if (!rcCols.includes('affected_components')) {
+    db.exec("ALTER TABLE root_causes ADD COLUMN affected_components TEXT DEFAULT '[]'");
+  }
+  if (!rcCols.includes('unknowns')) {
+    db.exec("ALTER TABLE root_causes ADD COLUMN unknowns TEXT DEFAULT '[]'");
+  }
+
+  // 3. Recommendations table columns
+  const recCols = db.prepare('PRAGMA table_info(recommendations)').all().map(c => c.name);
+  if (!recCols.includes('affected_components')) {
+    db.exec("ALTER TABLE recommendations ADD COLUMN affected_components TEXT DEFAULT '[]'");
+  }
+  if (!recCols.includes('implementation_impact')) {
+    db.exec("ALTER TABLE recommendations ADD COLUMN implementation_impact TEXT");
+  }
+  if (!recCols.includes('verification_method')) {
+    db.exec("ALTER TABLE recommendations ADD COLUMN verification_method TEXT");
+  }
+  if (!recCols.includes('unknowns')) {
+    db.exec("ALTER TABLE recommendations ADD COLUMN unknowns TEXT");
+  }
+
+  // 4. Memories table columns
+  const memCols = db.prepare('PRAGMA table_info(memories)').all().map(c => c.name);
+  if (!memCols.includes('is_current_truth')) {
+    db.exec("ALTER TABLE memories ADD COLUMN is_current_truth INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!memCols.includes('provenance_type')) {
+    db.exec("ALTER TABLE memories ADD COLUMN provenance_type TEXT NOT NULL DEFAULT 'HISTORICAL_ARCHIVE'");
+  }
+
+  // 5. FinOps durable cost tracking table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS finops_cost_records (
+      id TEXT PRIMARY KEY,
+      organization_id TEXT NOT NULL,
+      investigation_id TEXT,
+      type TEXT NOT NULL,
+      quantity REAL NOT NULL,
+      provider TEXT,
+      model TEXT,
+      cost_usd REAL NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY(organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
+      FOREIGN KEY(investigation_id) REFERENCES investigations(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_finops_org_created ON finops_cost_records(organization_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_finops_inv_created ON finops_cost_records(investigation_id, created_at);
+  `);
+}
+
 const MIGRATIONS = [
   { version: 1, name: '001_base_schema', up: migration001 },
   { version: 2, name: '002_organizations_and_users', up: migration002 },
@@ -468,7 +544,8 @@ const MIGRATIONS = [
   { version: 5, name: '005_schema_normalization_and_indexing', up: migration005 },
   { version: 6, name: '006_async_job_queue_and_workers', up: migration006 },
   { version: 7, name: '007_repository_ingestion_and_file_tree', up: migration007 },
-  { version: 8, name: '008_ast_symbols_and_call_graphs', up: migration008 }
+  { version: 8, name: '008_ast_symbols_and_call_graphs', up: migration008 },
+  { version: 9, name: '009_finops_cost_records_and_field_completeness', up: migration009 }
 ];
 
 /**

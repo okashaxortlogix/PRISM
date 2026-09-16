@@ -63,7 +63,10 @@ function semanticSearchMemories(memories, query, minSimilarity = 0.05) {
         ...mem,
         similarity,
         freshness,
-        compositeScore
+        compositeScore,
+        is_current_truth: false,
+        provenance_type: 'HISTORICAL_ARCHIVE',
+        retrieval_disclaimer: 'Historical incident memory provided for comparative reference only; verify against current environment.'
       };
     })
     .filter(m => m.similarity >= minSimilarity)

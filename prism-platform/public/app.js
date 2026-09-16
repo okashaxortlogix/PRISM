@@ -353,6 +353,9 @@ function renderInvestigationWorkspace(inv) {
   renderVerificationPane(inv.experiments || [], inv.verifications || []);
   renderRootCausePane(inv.rootCauses || [], inv.impact);
   renderRecommendationsPane(inv.recommendations || []);
+
+  // Update FinOps cost indicators
+  updateInvestigationCost(inv.id);
 }
 
 function renderStepper(currentStatus) {
@@ -984,6 +987,50 @@ function setupEventListeners() {
       console.error(err);
     }
   });
+
+  // Code Intelligence Tab Handlers
+  const btnRefreshCodeIntel = document.getElementById('btn-refresh-codeintel');
+  if (btnRefreshCodeIntel) {
+    btnRefreshCodeIntel.addEventListener('click', loadCodeIntelData);
+  }
+
+  const btnTriggerIngest = document.getElementById('btn-trigger-ingest');
+  if (btnTriggerIngest) {
+    btnTriggerIngest.addEventListener('click', async () => {
+      try {
+        const repoSelector = document.getElementById('project-selector');
+        const projId = repoSelector ? repoSelector.value : 'prj_checkout';
+        showToast('Enqueuing repository ingestion background worker job...');
+        await fetchAPI(`/api/v1/projects/${projId}/repositories/ingest-job`, {
+          method: 'POST',
+          body: JSON.stringify({ branch: 'main' })
+        }).catch(() => {
+          // Fallback direct endpoint
+          return fetchAPI(`/api/v1/repositories/repo_checkout_core/ingest`, { method: 'POST' });
+        });
+        showToast('✔ Repository ingestion initiated successfully!', 'success');
+        loadCodeIntelData();
+        loadBackgroundJobs();
+      } catch (err) {
+        console.error(err);
+      }
+    });
+  }
+
+  // Background Jobs Tab Handlers
+  const btnRefreshJobs = document.getElementById('btn-refresh-jobs');
+  if (btnRefreshJobs) {
+    btnRefreshJobs.addEventListener('click', loadBackgroundJobs);
+  }
+
+  // FinOps Modal Handlers
+  const btnFinopsModal = document.getElementById('btn-finops-modal');
+  if (btnFinopsModal) {
+    btnFinopsModal.addEventListener('click', () => {
+      document.getElementById('modal-finops').classList.add('open');
+      loadFinopsSummary();
+    });
+  }
 }
 
 function escapeHTML(str) {
@@ -994,3 +1041,240 @@ function escapeHTML(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+
+// ----------------------------------------------------
+// Code Intelligence & AST Handlers
+// ----------------------------------------------------
+async function loadCodeIntelData() {
+  try {
+    const filesContainer = document.getElementById('repo-files-list');
+    const symbolsContainer = document.getElementById('repo-symbols-list');
+    const badgeSymbols = document.getElementById('badge-symbols-count');
+
+    // Fetch repositories
+    const repoRes = await fetchAPI('/api/v1/repositories').catch(() => ({ data: [] }));
+    const repos = repoRes.data || [];
+    const activeRepo = repos[0] || { id: 'repo_checkout_core', name: 'checkout-service' };
+
+    // Fetch repository files
+    const filesRes = await fetchAPI(`/api/v1/repositories/${activeRepo.id}/files`).catch(() => ({ data: [] }));
+    const files = filesRes.data || [];
+
+    if (filesContainer) {
+      filesContainer.innerHTML = '';
+      if (files.length === 0) {
+        filesContainer.innerHTML = '<div class="subtext" style="padding: 12px;">No indexed files found. Click "Ingest Repository" to scan the tree.</div>';
+      } else {
+        files.forEach(f => {
+          const card = document.createElement('div');
+          card.className = 'experiment-card';
+          card.style.cursor = 'pointer';
+          card.onclick = () => loadSymbolsForFile(activeRepo.id, f.path);
+          card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-family: var(--font-mono); font-size: 0.82rem; font-weight: 600; color: #38bdf8;">📄 ${escapeHTML(f.path)}</span>
+              <span class="badge badge-subtle">${f.language || 'code'}</span>
+            </div>
+            <div class="evidence-footer" style="padding-top: 4px; margin-top: 4px;">
+              <span class="subtext">SHA: ${escapeHTML((f.content_hash || f.sha || 'e3b0c442').substring(0, 12))}...</span>
+              <span class="subtext">${f.byte_size || f.size || 0} bytes</span>
+            </div>
+          `;
+          filesContainer.appendChild(card);
+        });
+      }
+    }
+
+    // Fetch AST symbols
+    const symbolsRes = await fetchAPI(`/api/v1/repositories/${activeRepo.id}/symbols`).catch(() => ({ data: [] }));
+    const symbols = symbolsRes.data || [];
+    if (badgeSymbols) badgeSymbols.textContent = symbols.length;
+
+    if (symbolsContainer) {
+      renderSymbolsList(symbols);
+    }
+  } catch (err) {
+    console.error('Error loading Code Intel:', err);
+  }
+}
+
+async function loadSymbolsForFile(repoId, filePath) {
+  try {
+    const symbolsRes = await fetchAPI(`/api/v1/repositories/${repoId}/symbols?file=${encodeURIComponent(filePath)}`).catch(() => ({ data: [] }));
+    renderSymbolsList(symbolsRes.data || []);
+  } catch (err) {
+    console.error('Error loading file symbols:', err);
+  }
+}
+
+function renderSymbolsList(symbols) {
+  const container = document.getElementById('repo-symbols-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (symbols.length === 0) {
+    container.innerHTML = '<div class="subtext" style="padding: 12px;">No AST symbols extracted yet.</div>';
+    return;
+  }
+
+  symbols.forEach(sym => {
+    const card = document.createElement('div');
+    card.className = 'verification-card';
+    const kindBadge = sym.kind === 'CLASS' ? 'badge-sev2' : (sym.kind === 'FUNCTION' ? 'badge-status' : 'badge-subtle');
+    card.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-family: var(--font-mono); font-weight: 700; color: #e2e8f0;">${escapeHTML(sym.name)}</span>
+        <span class="badge ${kindBadge}">${escapeHTML(sym.kind || 'SYMBOL')}</span>
+      </div>
+      <div class="subtext" style="font-family: var(--font-mono); font-size: 0.74rem;">
+        ${escapeHTML(sym.file_path || 'unknown')}:${sym.line_start || 1}-${sym.line_end || 1}
+      </div>
+      ${sym.docstring ? `<div style="font-size: 0.78rem; color: #94a3b8;">${escapeHTML(sym.docstring)}</div>` : ''}
+    `;
+    container.appendChild(card);
+  });
+}
+
+// ----------------------------------------------------
+// Background Job Queue Handlers
+// ----------------------------------------------------
+async function loadBackgroundJobs() {
+  try {
+    const res = await fetchAPI('/api/v1/jobs').catch(() => ({ data: [] }));
+    const jobs = res.data || [];
+    const badgeJobs = document.getElementById('badge-jobs-count');
+    const container = document.getElementById('jobs-list');
+
+    if (badgeJobs) badgeJobs.textContent = jobs.length;
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (jobs.length === 0) {
+      container.innerHTML = '<div class="subtext" style="padding: 16px;">No background jobs queued or executing.</div>';
+      return;
+    }
+
+    jobs.forEach(j => {
+      const card = document.createElement('div');
+      card.className = 'hypothesis-card';
+      const statusBadge = j.status === 'SUCCEEDED' ? 'badge-success' : (j.status === 'FAILED' ? 'badge-sev1' : (j.status === 'RUNNING' ? 'badge-status' : 'badge-subtle'));
+      card.innerHTML = `
+        <div class="hypothesis-top-bar">
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <span class="mono-tag">${j.id}</span>
+            <span class="badge ${statusBadge}">${j.status}</span>
+            <span class="badge badge-subtle">PRIORITY: ${j.priority_score || j.priority || 'NORMAL'}</span>
+          </div>
+          <div>
+            ${(j.status === 'QUEUED' || j.status === 'RUNNING') ? `<button class="btn btn-secondary btn-sm" onclick="cancelJob('${j.id}')">Cancel Job</button>` : ''}
+          </div>
+        </div>
+        <div style="font-size: 0.88rem; font-weight: 600;">Type: ${escapeHTML(j.type || j.job_type || 'INVESTIGATION_RUN')}</div>
+        <div class="evidence-code-box" style="font-size: 0.74rem;">Payload: ${escapeHTML(typeof j.payload === 'object' ? JSON.stringify(j.payload) : (j.payload || '{}'))}</div>
+        <div class="evidence-footer">
+          <span>Worker Lease: ${escapeHTML(j.worker_id || 'unassigned')}</span>
+          <span>Updated: ${new Date(j.updated_at || j.created_at).toLocaleTimeString()}</span>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+  } catch (err) {
+    console.error('Error loading background jobs:', err);
+  }
+}
+
+window.cancelJob = async function(jobId) {
+  try {
+    await fetchAPI(`/api/v1/jobs/${jobId}/cancel`, { method: 'POST' });
+    showToast(`✔ Job ${jobId} cancelled successfully!`, 'info');
+    loadBackgroundJobs();
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+// ----------------------------------------------------
+// FinOps Real-Time Cost Handlers
+// ----------------------------------------------------
+async function updateInvestigationCost(invId) {
+  if (!invId) return;
+  try {
+    const res = await fetchAPI(`/api/v1/investigations/${invId}/cost`).catch(() => ({ data: { totalCostUsd: 0 } }));
+    const cost = res.data?.totalCostUsd || 0;
+    const headerCost = document.getElementById('finops-header-cost');
+    if (headerCost) {
+      headerCost.textContent = `$${cost.toFixed(4)}`;
+    }
+  } catch {
+    // Non-blocking
+  }
+}
+
+async function loadFinopsSummary() {
+  try {
+    const invId = activeInvestigationId;
+    let invCost = 0;
+    let invRecords = [];
+
+    if (invId) {
+      const invRes = await fetchAPI(`/api/v1/investigations/${invId}/cost`).catch(() => ({ data: { totalCostUsd: 0, records: [] } }));
+      invCost = invRes.data?.totalCostUsd || 0;
+      invRecords = invRes.data?.records || [];
+
+      const invCostBadge = document.getElementById('finops-inv-cost-badge');
+      const invBreakdown = document.getElementById('finops-inv-breakdown');
+      if (invCostBadge) invCostBadge.textContent = `$${invCost.toFixed(4)}`;
+      if (invBreakdown) {
+        invBreakdown.innerHTML = `
+          <div><strong>Tokens & Sandbox Cost:</strong> $${invCost.toFixed(4)}</div>
+          <div><strong>Billable Ledger Entries:</strong> ${invRecords.length} records</div>
+        `;
+      }
+    }
+
+    const orgRes = await fetchAPI('/api/v1/finops/summary').catch(() => ({ data: { totalSpend: 0, budget: 100, isOverBudget: false, anomalies: [] } }));
+    const orgSpendBadge = document.getElementById('finops-org-spend-badge');
+    const orgBreakdown = document.getElementById('finops-org-breakdown');
+
+    if (orgSpendBadge) {
+      orgSpendBadge.textContent = `$${(orgRes.data.totalSpend || 0).toFixed(2)} / $${(orgRes.data.budget || 100).toFixed(2)}`;
+      orgSpendBadge.className = `badge ${orgRes.data.isOverBudget ? 'badge-sev1' : 'badge-status'}`;
+    }
+
+    if (orgBreakdown) {
+      orgBreakdown.innerHTML = `
+        <div><strong>Total Spend MTD:</strong> $${(orgRes.data.totalSpend || 0).toFixed(4)}</div>
+        <div><strong>Budget Limit:</strong> $${(orgRes.data.budget || 100).toFixed(2)} (${orgRes.data.isOverBudget ? '<span style="color:#ef4444;">OVER BUDGET</span>' : '<span style="color:#10b981;">HEALTHY</span>'})</div>
+        <div><strong>Spend Anomalies Detected:</strong> ${orgRes.data.anomalies?.length || 0}</div>
+      `;
+    }
+
+    const recordsContainer = document.getElementById('finops-records-list');
+    if (recordsContainer) {
+      recordsContainer.innerHTML = '';
+      const list = invRecords.length > 0 ? invRecords : (orgRes.data.recentRecords || []);
+      if (list.length === 0) {
+        recordsContainer.innerHTML = '<div class="subtext" style="padding: 8px;">No billable FinOps transactions recorded yet.</div>';
+      } else {
+        list.slice(0, 20).forEach(rec => {
+          const row = document.createElement('div');
+          row.className = 'verification-card';
+          row.style.padding = '8px 12px';
+          row.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span class="badge badge-subtle">${rec.usage_type}</span>
+              <span style="font-family: var(--font-mono); font-weight: 700; color: #10b981;">+$${parseFloat(rec.cost_usd || 0).toFixed(4)}</span>
+            </div>
+            <div class="subtext" style="font-size: 0.74rem;">
+              Units: ${rec.quantity} | Model/Resource: ${escapeHTML(rec.model || rec.details || 'N/A')}
+            </div>
+          `;
+          recordsContainer.appendChild(row);
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Error loading FinOps summary:', err);
+  }
+}
+

@@ -17,6 +17,7 @@ const { runRepoIngestionTests } = require('./ingestion/repoIngestion.test');
 const { runAstSymbolGraphTests } = require('./ingestion/astSymbolGraph.test');
 const { runIntelligencePipelineTests } = require('./intelligence/intelligencePipeline.test');
 const { runMasterE2ETests } = require('./e2e/fullInvestigationLifecycle.test');
+const { runFailureRecoveryTests } = require('./failure/recovery.test');
 const assert = require('node:assert');
 
 async function runMasterTestSuite() {
@@ -50,7 +51,7 @@ async function runMasterTestSuite() {
     { id: 'evi_2', reliability: 0.98, type: 'REPOSITORY_CODE' }
   ];
   const eval1 = evaluateHypothesisConfidence(mockHypothesis, mockEvidence);
-  assert.strictEqual(eval1.status, 'HIGHLY_LIKELY');
+  assert.strictEqual(eval1.status, 'SUPPORTED');
   assert.ok(eval1.confidence >= 0.75, 'Confidence should be high with strong supporting evidence and no conflicts');
 
   // Gap analysis
@@ -124,6 +125,10 @@ async function runMasterTestSuite() {
   // 17. Master End-to-End Investigation Lifecycle Integration
   const e2eCount = await runMasterE2ETests();
   domainTestsCount += e2eCount;
+
+  // 18. Failure, Fault Injection & Disaster Recovery Tests
+  const recoveryCount = await runFailureRecoveryTests();
+  domainTestsCount += recoveryCount;
 
   const total = domainTestsCount + securityTestsCount;
 
