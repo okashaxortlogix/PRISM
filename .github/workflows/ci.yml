@@ -1,0 +1,38 @@
+name: PRISM Platform CI Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [ 24.x ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: prism-platform/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./prism-platform
+        run: npm ci
+
+      - name: Run automated test suite
+        working-directory: ./prism-platform
+        run: npm test
+
+      - name: Run performance benchmark suite
+        working-directory: ./prism-platform
+        run: node tests/benchmark.js
