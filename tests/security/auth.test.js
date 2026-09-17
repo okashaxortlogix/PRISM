@@ -39,11 +39,14 @@ async function runAuthTests() {
     const regData = await regRes.json();
     assert.strictEqual(regRes.status, 201);
     assert.strictEqual(regData.success, true);
-    assert.ok(regData.data.token, 'Must return session token');
+    assert.strictEqual(regData.data.token, undefined, 'Session token MUST NOT be returned in JSON');
+    const regCookie = regRes.headers.get('set-cookie');
+    assert.ok(regCookie && regCookie.includes('prism_session='), 'Must set prism_session HttpOnly cookie');
+    assert.ok(regCookie.includes('HttpOnly'), 'Cookie must be HttpOnly');
     assert.strictEqual(regData.data.user.email, testEmail);
     assert.strictEqual(regData.data.role, 'OWNER');
     assert.strictEqual(regData.data.user.password_hash, undefined, 'Password hash MUST NEVER be returned');
-    console.log('  ✔ Valid user registration succeeded with safe user object');
+    console.log('  ✔ Valid user registration succeeded with safe user object and HttpOnly cookie');
 
     // 3. Register duplicate user
     console.log('Test 3: Register duplicate email must be rejected');
@@ -88,9 +91,12 @@ async function runAuthTests() {
     const loginData = await loginRes.json();
     assert.strictEqual(loginRes.status, 200);
     assert.strictEqual(loginData.success, true);
-    assert.ok(loginData.data.token, 'Must return authentication bearer token');
-    const authToken = loginData.data.token;
-    console.log('  ✔ Login successful and returned secure session token');
+    assert.strictEqual(loginData.data.token, undefined, 'Login session token MUST NOT be returned in JSON');
+    const loginCookie = loginRes.headers.get('set-cookie');
+    assert.ok(loginCookie && loginCookie.includes('prism_session='), 'Must set prism_session HttpOnly cookie');
+    assert.ok(loginCookie.includes('HttpOnly'), 'Cookie must be HttpOnly');
+    const authToken = loginCookie.match(/prism_session=([^;]+)/)[1];
+    console.log('  ✔ Login successful and set secure HttpOnly cookie');
 
     // 6. Login with invalid password
     console.log('Test 6: Login with invalid password');

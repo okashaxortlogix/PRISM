@@ -56,7 +56,7 @@ async function runMasterE2ETests() {
   console.log('  ✔ Tenant environment configured.');
 
   console.log('2. Ingesting Repository & Parsing AST Symbols...');
-  const fixturePath = 'prism-platform/src/engine';
+  const fixturePath = 'src/engine';
   db.prepare(`
     INSERT INTO repositories (id, project_id, url, provider, status, created_at)
     VALUES (?, ?, ?, 'LOCAL_FIXTURE', 'INGESTED', datetime('now'))

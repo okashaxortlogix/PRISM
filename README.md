@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Tests-162%20Passing%20(100%25)-brightgreen.svg" alt="Tests" />
+  <img src="https://img.shields.io/badge/Tests-163%20Passing%20(100%25)-brightgreen.svg" alt="Tests" />
   <img src="https://img.shields.io/badge/Architecture-Async%20Worker%20%2B%20WAL%20Queue-blue.svg" alt="Architecture" />
   <img src="https://img.shields.io/badge/Security-Cryptographic%20HMAC%20%2B%20scrypt-darkgreen.svg" alt="Security" />
   <img src="https://img.shields.io/badge/AST-JS%20%7C%20TS%20%7C%20Python%20%7C%20Go-orange.svg" alt="Languages" />
@@ -249,7 +249,7 @@ All protected endpoints require `Authorization: Bearer <session_token>`.
 1. **Clone the repository**:
    ```bash
    git clone https://github.com/okashaxortlogix/PRISM.git
-   cd PRISM/prism-platform
+   cd PRISM
    ```
 
 2. **Install dependencies**:
@@ -278,7 +278,6 @@ All protected endpoints require `Authorization: Bearer <session_token>`.
 To launch PRISM using Docker and docker-compose:
 
 ```bash
-cd prism-platform
 docker compose up --build -d
 ```
 
@@ -341,60 +340,66 @@ PRISM includes built-in observability conforming to the Prometheus exposition fo
 
 ```text
 PRISM/
-├── prism-platform/
-│   ├── public/                      # Web console client
-│   │   ├── index.html               # Investigation dashboard UI
-│   │   ├── style.css                # Enterprise design system
-│   │   └── app.js                   # Client controller
-│   ├── src/
-│   │   ├── ai/                      # AI Gateway & embeddings
-│   │   │   ├── gateway.js           # Structured LLM output & heuristic fallback
-│   │   │   └── embeddings.js        # Dense vector embedding generator & cosine sim
-│   │   ├── api/routes/              # Tenant-isolated REST API routes
-│   │   │   ├── auth.js              # Authentication & session endpoints
-│   │   │   ├── investigations.js    # Investigation lifecycle endpoints
-│   │   │   ├── repositories.js      # Files, dependencies, symbols, call graphs
-│   │   │   ├── jobs.js              # Job queue status & cancellation
-│   │   │   ├── integrations.js      # Cryptographic webhook receivers
-│   │   │   ├── memories.js          # Vector memory bank & semantic search
-│   │   │   └── ...                  # Evidence, hypotheses, verifications, reports
-│   │   ├── db/                      # Persistence layer
-│   │   │   ├── database.js          # SQLite WAL connection & migration runner
-│   │   │   ├── schema.sql           # Canonical relational schema & indexes
-│   │   │   └── seed.js              # Initial fixtures & test accounts
-│   │   ├── engine/                  # Core domain intelligence engines
-│   │   │   ├── stateMachine.js      # Deterministic state transition engine
-│   │   │   ├── intelligenceEngine.js# Hypothesis confidence & gap analyzer
-│   │   │   ├── verificationEngine.js# Empirical experiment verifier
-│   │   │   ├── decisionEngine.js    # Blast radius & root cause synthesizer
-│   │   │   └── memoryEngine.js      # Semantic memory search & freshness decay
-│   │   ├── ingestion/               # Repository ingestion & code analysis
-│   │   │   ├── gitValidator.js      # Git URL security & injection protection
-│   │   │   ├── repoIndexer.js       # File tree walker & manifest parsers
-│   │   │   ├── astParser.js         # Multi-language AST code entity parser
-│   │   │   └── symbolGraph.js       # Caller-callee directed call graph
-│   │   ├── queue/                   # Durable async job workers
-│   │   │   ├── jobQueue.js          # Transactional queue claim & checkpoints
-│   │   │   ├── jobWorker.js         # Concurrent worker pool & heartbeats
-│   │   │   └── handlers/            # Dedicated job type processors
-│   │   ├── sandbox/                 # Safe empirical test runner
-│   │   │   └── executionSandbox.js  # Subprocess isolation & containment
-│   │   ├── security/                # Cryptography & tenant guards
-│   │   │   ├── passwordService.js   # scrypt hashing
-│   │   │   ├── sessionService.js    # Stateful SHA-256 tokens
-│   │   │   ├── tenantGuard.js       # Ownership hierarchy validation
-│   │   │   ├── webhookVerifier.js   # Raw body HMAC-SHA256 verification
-│   │   │   └── auditService.js      # Tamper-evident audit trails
-│   │   └── server.js                # Express application entrypoint
-│   └── tests/                       # 155 automated tests across 17 suites
-│       ├── security/                # Auth, isolation, header spoofing, webhooks
-│       ├── database/                # Schema normalization & query plan indexes
-│       ├── jobs/                    # Queue claiming, retries, checkpoints
-│       ├── ingestion/               # Git hardening, AST parsing, call graphs
-│       ├── intelligence/            # AI gateway, sandbox, decision engine
-│       ├── e2e/                     # Master full-lifecycle integration test
-│       └── runAllTests.js           # Master test runner
+├── .agents/skills/prism/            # Antigravity agentic skill & progressive disclosure
+├── PRISM-Skill/                     # Standalone PRISM skill distribution package
+├── claude-codex-skill/              # Claude Desktop & OpenAI Codex skill package
+├── public/                          # Web console client
+│   ├── index.html                   # Investigation dashboard UI
+│   ├── style.css                    # Enterprise design system
+│   └── app.js                       # Client controller
+├── src/                             # Platform core engines & API
+│   ├── ai/                          # AI Gateway & vector embeddings
+│   │   ├── gateway.js               # Structured LLM output & heuristic fallback
+│   │   └── embeddings.js            # Dense vector embedding generator & cosine sim
+│   ├── api/routes/                  # Tenant-isolated REST API routes
+│   │   ├── auth.js                  # Authentication & session endpoints
+│   │   ├── investigations.js        # Investigation lifecycle endpoints
+│   │   ├── repositories.js          # Files, dependencies, symbols, call graphs
+│   │   ├── jobs.js                  # Job queue status & cancellation
+│   │   ├── integrations.js          # Cryptographic webhook receivers
+│   │   ├── memories.js              # Vector memory bank & semantic search
+│   │   └── ...                      # Evidence, hypotheses, verifications, reports
+│   ├── db/                          # Persistence layer
+│   │   ├── database.js              # SQLite WAL connection & migration runner
+│   │   ├── schema.sql               # Canonical relational schema & indexes
+│   │   └── seed.js                  # Initial fixtures & test accounts
+│   ├── engine/                      # Core domain intelligence engines
+│   │   ├── stateMachine.js          # Deterministic state transition engine
+│   │   ├── intelligenceEngine.js    # Hypothesis confidence & gap analyzer
+│   │   ├── verificationEngine.js    # Empirical experiment verifier
+│   │   ├── decisionEngine.js        # Blast radius & root cause synthesizer
+│   │   └── memoryEngine.js          # Semantic memory search & freshness decay
+│   ├── ingestion/                   # Repository ingestion & code analysis
+│   │   ├── gitValidator.js          # Git URL security & injection protection
+│   │   ├── repoIndexer.js           # File tree walker & manifest parsers
+│   │   ├── astParser.js             # Multi-language AST code entity parser
+│   │   └── symbolGraph.js           # Caller-callee directed call graph
+│   ├── queue/                       # Durable async job workers
+│   │   ├── jobQueue.js              # Transactional queue claim & checkpoints
+│   │   ├── jobWorker.js             # Concurrent worker pool & heartbeats
+│   │   └── handlers/                # Dedicated job type processors
+│   ├── sandbox/                     # Safe empirical test runner
+│   │   └── executionSandbox.js      # Subprocess isolation & containment
+│   ├── security/                    # Cryptography & tenant guards
+│   │   ├── passwordService.js       # scrypt hashing
+│   │   ├── sessionService.js        # Stateful SHA-256 tokens & HttpOnly cookies
+│   │   ├── tenantGuard.js           # Ownership hierarchy validation
+│   │   ├── webhookVerifier.js       # Raw body HMAC-SHA256 verification
+│   │   └── auditService.js          # Tamper-evident audit trails
+│   └── server.js                    # Express application entrypoint
+├── tests/                           # 163 automated tests across 17 suites
+│   ├── security/                    # Auth, isolation, header spoofing, webhooks
+│   ├── database/                    # Schema normalization & query plan indexes
+│   ├── jobs/                        # Queue claiming, retries, checkpoints
+│   ├── ingestion/                   # Git hardening, AST parsing, call graphs
+│   ├── intelligence/                # AI gateway, sandbox, decision engine
+│   ├── failure/                     # Fault injection & crash recovery
+│   ├── e2e/                         # Master full-lifecycle integration test
+│   └── runAllTests.js               # Master test runner
 ├── PRISM_Project_Package/           # 23-folder architectural specification
+├── FINAL-ACCEPTANCE-REPORT.md       # Final release acceptance & sign-off
+├── SECURITY.md                      # Security vulnerability disclosure policy
+├── SECURITY-AUDIT.md                # Comprehensive security audit report
 └── README.md                        # Master platform documentation
 ```
 

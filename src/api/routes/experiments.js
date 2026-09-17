@@ -79,14 +79,20 @@ router.post('/experiments/:id/run', requireRole(['MEMBER', 'ADMIN', 'OWNER']), a
       maxMemoryMb: req.body.maxMemoryMb || exp.max_memory_mb || 256
     });
 
-    const startTime = new Date().toISOString();
-    const scriptToRun = req.body.script || exp.script || `
-      const assert = require('assert');
-      // Verification plan execution: ${JSON.stringify(exp.plan)}
-      assert.ok(true);
-    `;
+    // P0 Security Defense (SEC-001): Reject arbitrary user-controlled code strings from the network
+    if (req.body.script) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'ARBITRARY_CODE_EXECUTION_BLOCKED',
+          message: 'Arbitrary script submission is strictly prohibited. Experiments must execute verified declarative plans.'
+        }
+      });
+    }
 
-    const sandboxResult = await sandbox.runNodeVerification(scriptToRun, {
+    const startTime = new Date().toISOString();
+    const sandboxResult = await sandbox.executeDeclarativePlan(exp.plan, {
+      db: getDatabase(),
       organizationId: req.organization.id,
       investigationId: exp.investigation_id
     });

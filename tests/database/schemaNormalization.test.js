@@ -155,7 +155,8 @@ async function runSchemaNormalizationTests() {
       body: JSON.stringify({ email: 'alex.chen@acme.internal', password: 'PrismDemo2026!' })
     });
     const loginData = await loginRes.json();
-    const token = loginData.data.token;
+    const cookie = loginRes.headers.get('set-cookie');
+    const token = cookie ? (cookie.match(/prism_session=([^;]+)/) || [])[1] : null;
 
     const hypRes = await fetch(`${baseUrl}/api/v1/investigations/inv_001/hypotheses`, {
       headers: { 'Authorization': `Bearer ${token}` }

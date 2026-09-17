@@ -115,12 +115,13 @@ router.post('/register', registerRateLimiter.middleware(), (req, res) => {
     });
 
     // Set secure cookie
-    res.setHeader('Set-Cookie', `prism_session=${session.rawToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`);
+    const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https' || process.env.NODE_ENV === 'production';
+    const cookieFlags = `Path=/; HttpOnly; SameSite=Lax; Max-Age=86400${isSecure ? '; Secure' : ''}`;
+    res.setHeader('Set-Cookie', `prism_session=${session.rawToken}; ${cookieFlags}`);
 
     res.status(201).json({
       success: true,
       data: {
-        token: session.rawToken,
         expiresAt: session.expiresAt,
         role: 'OWNER',
         user: {
@@ -241,12 +242,13 @@ router.post('/login', loginRateLimiter.middleware(), (req, res) => {
       metadata: { ip }
     });
 
-    res.setHeader('Set-Cookie', `prism_session=${session.rawToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`);
+    const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https' || process.env.NODE_ENV === 'production';
+    const cookieFlags = `Path=/; HttpOnly; SameSite=Lax; Max-Age=86400${isSecure ? '; Secure' : ''}`;
+    res.setHeader('Set-Cookie', `prism_session=${session.rawToken}; ${cookieFlags}`);
 
     res.json({
       success: true,
       data: {
-        token: session.rawToken,
         expiresAt: session.expiresAt,
         role: membership.role,
         user: {
@@ -287,7 +289,8 @@ router.post('/logout', (req, res) => {
       revokeSession(token);
     }
 
-    res.setHeader('Set-Cookie', 'prism_session=; Path=/; HttpOnly; Max-Age=0');
+    const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https' || process.env.NODE_ENV === 'production';
+    res.setHeader('Set-Cookie', `prism_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${isSecure ? '; Secure' : ''}`);
     res.json({ success: true, message: 'Logged out successfully.' });
   } catch (err) {
     res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: err.message } });

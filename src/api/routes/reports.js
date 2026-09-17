@@ -97,13 +97,24 @@ router.get('/investigations/:id/report', (req, res) => {
       return res.send(markdownContent);
     }
 
+// HTML entity encoding utility for SEC-002 defense
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
     // HTML format
     res.setHeader('Content-Type', 'text/html');
     return res.send(`
       <!DOCTYPE html>
       <html>
       <head>
-        <title>PRISM Report: ${inv.title}</title>
+        <title>PRISM Report: ${escapeHtml(inv.title)}</title>
         <style>
           body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #1e293b; }
           h1 { color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; }
@@ -114,14 +125,14 @@ router.get('/investigations/:id/report', (req, res) => {
         </style>
       </head>
       <body>
-        <h1>${inv.title}</h1>
-        <p><span class="badge">${inv.severity}</span> <span class="badge">${inv.status}</span> <strong>ID:</strong> ${inv.id}</p>
+        <h1>${escapeHtml(inv.title)}</h1>
+        <p><span class="badge">${escapeHtml(inv.severity)}</span> <span class="badge">${escapeHtml(inv.status)}</span> <strong>ID:</strong> ${escapeHtml(inv.id)}</p>
         <h2>Problem Statement</h2>
-        <blockquote>${inv.problem_statement}</blockquote>
+        <blockquote>${escapeHtml(inv.problem_statement)}</blockquote>
         <h2>Root Causes (${rootCauses.length})</h2>
-        <ul>${rootCauses.map(rc => `<li><strong>${rc.statement}</strong> (Confidence: ${(rc.confidence * 100).toFixed(0)}%)</li>`).join('')}</ul>
+        <ul>${rootCauses.map(rc => `<li><strong>${escapeHtml(rc.statement)}</strong> (Confidence: ${(Number(rc.confidence || 0) * 100).toFixed(0)}%)</li>`).join('')}</ul>
         <h2>Actionable Recommendations (${recommendations.length})</h2>
-        <ul>${recommendations.map(r => `<li><strong>[${r.priority}] ${r.action}</strong>: ${r.rationale}</li>`).join('')}</ul>
+        <ul>${recommendations.map(r => `<li><strong>[${escapeHtml(r.priority)}] ${escapeHtml(r.action)}</strong>: ${escapeHtml(r.rationale)}</li>`).join('')}</ul>
       </body>
       </html>
     `);

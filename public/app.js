@@ -13,15 +13,19 @@ let currentUser = null;
 let currentOrg = null;
 
 function getToken() {
-  return localStorage.getItem('prism_session_token');
+  // SEC-003: Tokens are never read from or written to localStorage/sessionStorage.
+  return null;
 }
 
 function setToken(token) {
-  localStorage.setItem('prism_session_token', token);
+  // SEC-003: Tokens are managed strictly via browser HttpOnly cookies.
 }
 
 function clearToken() {
-  localStorage.removeItem('prism_session_token');
+  try {
+    localStorage.removeItem('prism_session_token');
+    sessionStorage.removeItem('prism_session_token');
+  } catch {}
   currentUser = null;
   currentOrg = null;
 }
@@ -61,11 +65,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function initApp() {
-  const token = getToken();
-  if (!token) {
-    showAuthModal();
-    return;
-  }
+  try {
+    localStorage.removeItem('prism_session_token');
+  } catch {}
 
   try {
     const res = await fetchAPI('/api/v1/auth/me');
@@ -74,7 +76,6 @@ async function initApp() {
     await loadProjects();
     await loadInvestigations();
   } catch (err) {
-    console.warn('Authentication check failed:', err.message);
     clearToken();
     showAuthModal();
   }
@@ -90,12 +91,8 @@ async function fetchAPI(url, options = {}) {
       ...options.headers
     };
 
-    const token = getToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
     const res = await fetch(url, {
+      credentials: 'same-origin',
       ...options,
       headers
     });
@@ -151,7 +148,6 @@ async function handleLoginSubmit() {
       throw new Error(data.error?.message || 'Login failed.');
     }
 
-    setToken(data.data.token);
     updateUserContext(data.data);
     hideAuthModal();
     showToast(`Signed in as ${data.data.user.display_name} (${data.data.organization.name})`, 'success');
@@ -184,7 +180,6 @@ async function handleRegisterSubmit() {
       throw new Error(data.error?.message || 'Registration failed.');
     }
 
-    setToken(data.data.token);
     updateUserContext(data.data);
     hideAuthModal();
     showToast(`Account created! Welcome, ${data.data.user.display_name}`, 'success');
